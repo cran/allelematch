@@ -38,7 +38,8 @@ cat(amCSSForHTML(), file="myCSS.css")
 myCSS <- paste(readLines("myCSS.css"), collapse="\n")
 
 ## Perform an allelematch unique analysis
-myUnique <- amUnique(amDataset(amExample5, missingCode="-99", indexColumn=1,   metaDataColumn=2, ignoreColumn="gender"),
+myUnique <- amUnique(amDataset(amExample5, missingCode="-99", indexColumn=1,
+    metaDataColumn=2, ignoreColumn="gender"),
 alleleMismatch=3)
 
 ## Produce HTML output using tweaked CSS

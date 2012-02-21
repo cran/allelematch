@@ -1,5 +1,5 @@
 % -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
-%\VignetteIndexEntry{ALLELEMATCH Supplemental Documentation and Tutorial}
+%\VignetteIndexEntry{Allelematch supplementary documentation with tutorials}
 \documentclass[11pt]{article}
 
 
@@ -19,14 +19,14 @@
 \title{The \textsc{allelematch} package for R:\\Supplementary documentation with tutorials}
 \author[1]{P. Galpern}
 \author[1,2]{M. Manseau}
-\author[3]{P. Hettinga}
-\author[4]{P. Wilson}
-\author[4]{K. Smith}
+\author[1]{P. Hettinga}
+\author[3]{K. Smith}
+\author[3]{P. Wilson}
 \affil[1]{Natural Resources Institute, University of Manitoba}
 \affil[2]{Parks Canada}
-\affil[3]{Wildlife Resources Consulting Service Manitoba}
-\affil[4]{Natural Resources DNA Profiling and Forensic Centre, Trent University}
+\affil[3]{Natural Resources DNA Profiling and Forensic Centre, Trent University}
 \date{}
+
 
 
 \bibliographystyle{Plainnat}
@@ -148,7 +148,7 @@ for samples in rows \(a_{p,*}\) and \(a_{q,*}\) to be declared the same \emph{un
 
 We work with the alleleMismatch criterion, \(\hat{m}\) rather than its equivalent \(\hat{d}\) for heuristic reasons; it is more familiar to think in terms of the equivalent number of alleles that mismatch rather than in terms of a dissimilarity metric.
 
-\item To help confirm unique identity, the match probability \(P_{sib}\) \citep{wilberg_dreher_2004} is calculated given the allele frequencies in the \emph{unique} set of samples. It is calculated by default for all samples that are either \emph{unique}, or match a \emph{unique} sample without allele mismatches, and assesses the probability that two samples could match at their non-missing loci because they are siblings rather than duplicates. Optionally, it can be calculated for all samples by assuming that mismatching alleles are missing.
+\item To help confirm unique identity, the match probability \(P_{sib}\) \citep{woods_etal_1999} is calculated given the allele frequencies in the \emph{unique} set of samples. It is calculated by default for all samples that are either \emph{unique}, or match a \emph{unique} sample without allele mismatches, and assesses the probability that two samples could match at their non-missing loci because they are siblings rather than duplicates. Optionally, it can be calculated for all samples by assuming that mismatching alleles are missing.
 
 \item \emph{Unclassified} samples are generally those where their highest similarity score \(s\) with any other sample is slightly less than the criterion \(\hat{s}\). They therefore occupy a grey area in which they are not different enough to be declared \emph{unique}, but not similar enough to any \emph{unique} sample to be declared \emph{matches}. In practice there are few \emph{unclassified} samples. If the analysis protocol requires the inclusion of these samples, a robust solution is to reprofile them to eliminate missing data, which may be contributing to their uncertain status. 
 
@@ -543,6 +543,7 @@ summary(uniqueExample5, csv="example5_1.csv")
 \bibitem[Kalinowski et al.(2007)]{kalinowski_etal_2007}Kalinowski ST, Taper ML, Marshall TC (2007) Revising how the computer program CERVUS accommodates genotyping error increases success in paternity assignment. \emph{Molecular Ecology}, 16, 1099-1106.
 \bibitem[Langfelder et al.(2008)]{langfelder_etal_2008}Langfelder P, Zhang B, Horvath S (2008) Defining clusters from a hierarchical cluster tree: the Dynamic Tree Cut package for R. \emph{Bioinformatics}, 24, 719.
 \bibitem[Peakall \& Smouse(2006)]{peakall_etal_2006}Peakall R, Smouse PE (2006) GENALEX 6: genetic analysis in Excel. Population genetic software for teaching and research. \emph{Molecular Ecology Notes}, 6, 288-295.
+\bibitem[Woods et al.(1999)]{woods_etal_1999}Woods JG, Paetkau D, Lewis D, et al. (1999) Genetic tagging of free-ranging black and brown bears. \emph{Wildlife Society Bulletin}, 27, 616-627.
 \bibitem[Wilberg \& Dreher(2004)]{wilberg_dreher_2004}Wilberg MJ, Dreher BP (2004) GENECAP: a program for analysis of multilocus genotype data for non-invasive sampling and capture-recapture population estimation. \emph{Molecular Ecology Notes}, 4, 783-785.
 
 
