@@ -93,13 +93,16 @@ Paul Galpern (\email{pgalpern@gmail.com})
 \code{\link{amUnique}}
 }
 \examples{
+
+\dontrun{
+
 data("amExample2")
 
 ## Produce amDataset object
 myDataset <- amDataset(amExample2, missingCode="-99", indexColumn=1,
     metaDataColumn=2)
 
-## Usage
+## Usage (uncomment)
 myUniqueProfile <- amUniqueProfile(myDataset)
 
 ## Data set with gender information
@@ -114,5 +117,6 @@ myUniqueProfile <- amUniqueProfile(myDataset2,
     multilocusMap=c(1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8,
     9, 9, 10, 10, 11, 11))
 
+}
 
 }

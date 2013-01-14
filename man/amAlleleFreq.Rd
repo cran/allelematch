@@ -54,6 +54,9 @@ Paul Galpern (\email{pgalpern@gmail.com})
 \code{\link{amUnique}}
 }
 \examples{
+
+\dontrun{
+
 data("amExample5")
 
 ## Produce amDataset object
@@ -70,5 +73,8 @@ myDataset2 <- amDataset(amExample5, missingCode="-99", indexColumn=1,
 
 ## Because all columns are paired, usage is simpler
 myAlleleFreq <- amAlleleFreq(myDataset2)
+
+}
+
 }
 

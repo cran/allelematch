@@ -96,6 +96,9 @@ Paul Galpern (\email{pgalpern@gmail.com})
 \code{\link{amDataset}}, \code{\link{amMatrix}}, \code{\link{amUnique}}
 }
 \examples{
+
+\dontrun{
+
 data("amExample5")
 
 ## Produce amDataset object
@@ -126,5 +129,7 @@ myDatasetB <- amDataset(amExample5[sample(nrow(amExample5))[1:100], ],
     missingCode="-99", indexColumn=1, ignoreColumn=2)
 myPairwise2 <- amPairwise(myDatasetA, myDatasetB, alleleMismatch=3)
 summary(myPairwise2, html=TRUE)
+
+}
 
 }

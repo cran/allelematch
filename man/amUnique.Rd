@@ -128,6 +128,9 @@ Paul Galpern (\email{pgalpern@gmail.com})
 \code{\link{amDataset}}, \code{\link{amMatrix}}, \code{\link{amPairwise}}, \code{\link{amCluster}}, \code{\link{amUniqueProfile}}
 }
 \examples{
+
+\dontrun{
+
 data("amExample2")
 
 ## Produce amDataset object
@@ -163,6 +166,6 @@ myUniqueProfile <- amUnique(myDataset2,
     multilocusMap=c(1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8,
     9, 9, 10, 10, 11, 11), alleleMismatch=3)
 
-
+}
 
 }

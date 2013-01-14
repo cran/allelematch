@@ -9,11 +9,11 @@
                                   as.person("Paul Wilson")),
               year = "2012",
               journal = "Molecular Ecology Resources",
-              volume = "In press",
+              volume = "12:771-778",
      
               textVersion =
               paste("Galpern P, Manseau M, Hettinga P, Smith K, and Wilson P.  ",
                     "(2012). ",
                     "allelematch: an R package for identifying unique multilocus genotypes where genotyping error and missing data may be present. ",
                     "Molecular Ecology Resources. ",
-                    "In press", ".", sep=""))
+                    "12:771-778", ".", sep=""))

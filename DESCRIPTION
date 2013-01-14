@@ -2,8 +2,8 @@ Package: allelematch
 Type: Package
 Title: Identifying unique multilocus genotypes where genotyping error
         and missing data may be present
-Version: 2.02
-Date: 2012-02-21
+Version: 2.03
+Date: 2013-01-14
 Author: Paul Galpern <pgalpern@gmail.com>
 Maintainer: Paul Galpern <pgalpern@gmail.com>
 Description: This package provides tools for the identification of
@@ -19,6 +19,6 @@ License: GPL (>= 2)
 Depends: dynamicTreeCut
 URL: http://nricaribou.cc.umanitoba.ca/allelematch/
 LazyLoad: yes
-Packaged: 2012-02-21 18:25:23 UTC; pgalpern
+Packaged: 2013-01-14 16:49:17 UTC; pgalpern
 Repository: CRAN
-Date/Publication: 2012-02-21 20:04:25
+Date/Publication: 2013-01-14 18:29:38

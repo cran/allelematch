@@ -29,6 +29,8 @@ Paul Galpern (\email{pgalpern@gmail.com})
 }
 \examples{
 
+\dontrun{
+
 data("amExample5")
 
 ## Produce CSS file for editing
@@ -44,5 +46,7 @@ alleleMismatch=3)
 
 ## Produce HTML output using tweaked CSS
 amHTML.amUnique(myUnique, html="myUnique.htm", htmlCSS=myCSS)
+
+}
 
 }

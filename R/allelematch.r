@@ -187,13 +187,13 @@ amMatrix <- function(amDatasetFocal, missingMethod=2) {
         ## Treat missing data in either the focal or comparison genotype as a partial match except:
         ##      When missingMethod=2 missing data matches perfectly with missing data
         ##      When missingMethod=1 missing data matches partially with missing data
-        simMatrix[i,] <- as.real(rowSums(genotypes[rep(i, numGenotypes),]==genotypes, na.rm=TRUE) +
+        simMatrix[i,] <- as.double(rowSums(genotypes[rep(i, numGenotypes),]==genotypes, na.rm=TRUE) +
                                                           rowSums(is.na(genotypes) * missingMultiplier) + sum(is.na(genotypes[i,]) * missingMultiplier))
 
       }
     else {
         ## Treat missing data in the focal genotype, or missing data in the comparison genotype, or missing data matching in both as a match
-        ##simMatrix[i,] <- as.real(rowSums(genotypes[rep(i, numGenotypes),]==genotypes, na.rm=TRUE) +
+        ##simMatrix[i,] <- as.double(rowSums(genotypes[rep(i, numGenotypes),]==genotypes, na.rm=TRUE) +
         ##                                                  rowSums(is.na(genotypes) | is.na(genotypes[i,])))
         stop("allelematch:  missingMethod=0 is currently not implemented", call.=FALSE)
       }
@@ -280,12 +280,12 @@ amPairwise <- function(amDatasetFocal, amDatasetComparison=amDatasetFocal, allel
           ## Treat missing data in either the focal or comparison genotype as a partial match except:
           ##      When missingMethod=2 missing data matches perfectly with missing data
           ##      When missingMethod=1 missing data matches partially with missing data
-          simMatrix[i,] <- as.real(rowSums(focalGenotypes[rep(i, numComparisonGenotypes),]==comparisonGenotypes, na.rm=TRUE) +
+          simMatrix[i,] <- as.double(rowSums(focalGenotypes[rep(i, numComparisonGenotypes),]==comparisonGenotypes, na.rm=TRUE) +
                                                           rowSums(is.na(comparisonGenotypes) * missingMultiplier) + sum(is.na(focalGenotypes[i,]) * missingMultiplier))
       }
       else {
           ## Treat missing data in the focal genotype, or missing data in the comparison genotype, or missing data matching in both as a match
-          ##simMatrix[i,] <- as.real(rowSums(focalGenotypes[rep(i, numComparisonGenotypes),]==comparisonGenotypes, na.rm=TRUE) +
+          ##simMatrix[i,] <- as.double(rowSums(focalGenotypes[rep(i, numComparisonGenotypes),]==comparisonGenotypes, na.rm=TRUE) +
           ##                                                rowSums(is.na(comparisonGenotypes) | is.na(focalGenotypes[i,])))
           stop("allelematch:  missingMethod=0 is currently not implemented", call.=FALSE)
       }
@@ -973,7 +973,7 @@ amAlleleFreq <- function(amDatasetFocal, multilocusMap=NULL) {
         alleleFreq$loci[[locus]]$alleleFreq <- sort(sapply(thisLocusUnique, function(x) sum(thisLocus==x, na.rm=TRUE)/length(thisLocus[!is.na(thisLocus)])), decreasing=TRUE)
         alleleFreq$loci[[locus]]$missingFreq <- sum(is.na(thisLocus))/length(thisLocus)
         alleleFreq$loci[[locus]]$numAlleles <- length(thisLocusUnique)
-        alleleFreq$loci[[locus]]$PIC <- 1 - sum(alleleFreq$loci[[locus]]$alleleFreq^2) - sum(apply(t(combn(1:length(alleleFreq$loci[[locus]]$alleleFreq), 2)), 1, function(x) prod(alleleFreq$loci[[locus]]$alleleFreq[x]^2)))
+        #alleleFreq$loci[[locus]]$PIC <- 1 - sum(alleleFreq$loci[[locus]]$alleleFreq^2) - sum(apply(t(combn(1:length(alleleFreq$loci[[locus]]$alleleFreq), 2)), 1, function(x) prod(alleleFreq$loci[[locus]]$alleleFreq[x]^2)))
     }
     class(alleleFreq) <- "amAlleleFreq"
 

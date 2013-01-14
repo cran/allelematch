@@ -16,8 +16,8 @@ Functions explicitly incorporate missing data, and can tolerate allele mismatche
 \tabular{ll}{
 Package: \tab allelematch\cr
 Type: \tab Package\cr
-Version: \tab 2.02\cr
-Date: \tab 2012-02-21\cr
+Version: \tab 2.03\cr
+Date: \tab 2013-01-14\cr
 License: \tab GPL-2\cr
 Requires: \tab dynamicTreeCut\cr
 LazyLoad: \tab yes\cr
@@ -29,7 +29,7 @@ It is installed with the package and linked from the package index help page. An
 Simulations examining the performance of these tools have also been performed, and results are available in the publication associated with this package.  Please refer to the publication:\cr
 
 Galpern P, Manseau, M, Hettinga P, Smith K, and Wilson P.  (2012)  allelematch: an R package for identifying unique multilocus genotypes where genotype error and missing data may be present.
-\emph{Molecular Ecology Resources}.\cr
+\emph{Molecular Ecology Resources} 12:771-778.\cr
 
 Use \code{citation("allelematch")} for the full citation.  Please also use this publication when citing the package.\cr
 

@@ -117,6 +117,9 @@ Paul Galpern (\email{pgalpern@gmail.com})
 \code{\link{amDataset}}, \code{\link{amMatrix}}, \code{\link{amPairwise}}, \code{\link{amUnique}}, \code{\link{amUniqueProfile}}
 }
 \examples{
+
+\dontrun{
+
 data("amExample5")
 
 ## Produce amDataset object
@@ -150,7 +153,7 @@ summary(myCluster4 <- amCluster(myCluster3$unique, runUntilSingletons=FALSE,
     cutHeight=0.2), html=TRUE)
 ## No more clusters, therefore stop.
 
-
+}
 
 
 }

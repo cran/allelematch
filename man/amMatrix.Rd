@@ -43,6 +43,9 @@ Paul Galpern (\email{pgalpern@gmail.com})
 \code{\link{amPairwise}}, \code{\link{amUnique}}
 }
 \examples{
+
+\dontrun{
+
 data("amExample1")
 
 ## Produce amDataset object
@@ -51,5 +54,7 @@ myDataset <- amDataset(amExample1, missingCode="-99", indexColumn=1,
 
 ## Produce dissimilarity matrix
 dissimMatrix <- amMatrix(myDataset)
+}
+
 }
 

@@ -87,6 +87,9 @@ Paul Galpern (\email{pgalpern@gmail.com})
 \code{\link{amExampleData}} }
 
 \examples{
+
+\dontrun{
+
 data("amExample5")
 
 ## Typical usage
@@ -100,6 +103,8 @@ myAlleles <- myDataset$multilocus
 
 ## View the structure of amDataset object
 unclass(myDataset)
+
+}
 
 }
 
