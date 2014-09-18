@@ -1,4 +1,4 @@
-3d49d2ed3857be220cbc42750405bf23 *DESCRIPTION
+f1e3e73f84b2338884432ca8102d7932 *DESCRIPTION
 d514577cc054af49172c30c21a5fcd36 *NAMESPACE
 0191fa552657badeb52935156b6e212f *R/allelematch.r
 dceaebb80784b171e55e58a098268fa5 *data/amExample1.RData
@@ -7,8 +7,6 @@ dceaebb80784b171e55e58a098268fa5 *data/amExample1.RData
 eb0695dc01aa9e559e0bd4fa1ed12224 *data/amExample4.RData
 e3996fd6f09211a9f80d8eb15f629992 *data/amExample5.RData
 c2975cf1378689c98a62d8adc1c8697e *inst/CITATION
-06d2642b950b2d36daa2cf7f9049af0e *inst/doc/allelematchSuppDoc.Rnw
-5b66db6135a3474e2c23f8841863608f *inst/doc/allelematchSuppDoc.pdf
 606898e7336bafe61bfb373d65a508d5 *man/allelematch-package.Rd
 fcc2cb35f5b58bef52591ee0944c5bbe *man/amAlleleFreq.Rd
 6926bce360a6d101c3656d272ab1954b *man/amCSSForHTML.Rd
