@@ -4,7 +4,7 @@
 \alias{allelematch}
 \docType{package}
 \title{
-Identification of unique multilocus genotypes
+Identifying Unique Multilocus Genotypes where Genotyping Error and Missing Data may be Present
 }
 \description{
 This package provides tools for the identification of unique of multilocus genotypes when both genotyping error and missing data may be present. 
@@ -16,15 +16,16 @@ Functions explicitly incorporate missing data, and can tolerate allele mismatche
 \tabular{ll}{
 Package: \tab allelematch\cr
 Type: \tab Package\cr
-Version: \tab 2.03\cr
-Date: \tab 2013-01-14\cr
-License: \tab GPL-2\cr
-Requires: \tab dynamicTreeCut\cr
+Version: \tab 2.5.1\cr
+Date: \tab 2019-04-08\cr
+License: \tab GPL-3\cr
+Depends: \tab graphics, stats, utils\cr
+Imports: \tab dynamicTreeCut\cr
 LazyLoad: \tab yes\cr
 }
 
 Supplementary documentation describing the operation of the software in detail and illustrating the use of the software using tutorials is available as a vignette.
-It is installed with the package and linked from the package index help page. An online version is also available at \url{http://nricaribou.cc.umanitoba.ca/allelematch/}.\cr
+It is installed with the package and linked from the package index help page.
 
 Simulations examining the performance of these tools have also been performed, and results are available in the publication associated with this package.  Please refer to the publication:\cr
 
