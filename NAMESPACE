@@ -1,16 +1,12 @@
+# Default NAMESPACE created by R
+# Remove the previous line if you edit this file
+
 # Export all names
 exportPattern(".")
 
 # Import all packages listed as Imports or Depends
 importFrom("dynamicTreeCut", "cutreeHybrid")
-importFrom("graphics", "arrows", "layout", "legend", "lines", "par", "plot.default", "points", "text")
+importFrom("graphics", "arrows", "layout", "legend", "lines", "par",
+		   "plot.default", "points", "text")
 importFrom("stats", "as.dist", "hclust")
 importFrom("utils", "browseURL", "write.csv")
-
-# Define S3 methods
-S3method(print, amAlleleFreq)
-S3method(print, amDataset)
-S3method(summary, amCluster)
-S3method(summary, amPairwise)
-S3method(summary, amUnique)
-	

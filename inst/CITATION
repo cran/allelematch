@@ -1,19 +1,14 @@
      citHeader("To cite package 'allelematch' please use the publication:")
           
-     citEntry(entry="Article",
+     bibentry(bibtype = "Article",
               title = "allelematch: an R package for identifying unique multilocus genotypes where genotyping error and missing data may be present",
-              author = personList(as.person("Paul Galpern"),
-                                  as.person("Micheline Manseau"),
-                                  as.person("Pete Hettinga"),
-                                  as.person("Karen Smith"),
-                                  as.person("Paul Wilson")),
-              year = "2012",
+              author = c(person("Paul Galpern"),
+                         person("Micheline Manseau"),
+                         person("Pete Hettinga"),
+                         person("Karen Smith"),
+                         person("Paul Wilson")),
+              year = 2012,
               journal = "Molecular Ecology Resources",
-              volume = "12:771-778",
-     
-              textVersion =
-              paste("Galpern P, Manseau M, Hettinga P, Smith K, and Wilson P.  ",
-                    "(2012). ",
-                    "allelematch: an R package for identifying unique multilocus genotypes where genotyping error and missing data may be present. ",
-                    "Molecular Ecology Resources. ",
-                    "12:771-778", ".", sep=""))
+              volume = "12",
+              pages = "771--778",
+              doi = "")
