@@ -462,7 +462,7 @@ summary.amUnique <- function(object, html=NULL, csv=NULL, ...) {
         amCSV.amUnique(object, csvFile=csv, ...)
     }
     if (is.null(html) && is.null(csv)) {
-        cat("allelematch:  Console summary is not available for \"amUnique\" objects.  Please use summary(x, html=TRUE) or summary(x, csv=\"file.csv\") options.\n")
+        cat("allelematch:  Console summary is not available for \"amUnique\" objects.  Please use summary.amUnique(x, html=TRUE) or summary.amUnique(x, csv=\"file.csv\") options.\n")
     }
 }   
 
