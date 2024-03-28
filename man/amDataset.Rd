@@ -25,7 +25,7 @@
 
 \arguments{
 	\item{multilocusDataset}{
-		A code{matrix} or \code{data.frame} containing samples in rows and alleles in columns.\cr
+		A \code{matrix} or \code{data.frame} containing samples in rows and alleles in columns.\cr
 		Sampling IDs and meta-data may be specified in up to two additional columns.
 	}
 	\item{missingCode}{

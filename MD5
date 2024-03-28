@@ -1,7 +1,7 @@
-334d3db895eb4d8351377005e21ae9ef *DESCRIPTION
-db374de7310601aa4162f85966408002 *NAMESPACE
-6a68012b78ef0d9b287f79597ec31c81 *R/allelematch.r
-7080893e02c49cd296d4424b9be55069 *build/partial.rdb
+192feeda0a3528daaf5c399f3b4c2309 *DESCRIPTION
+d4a518966cbe40be1dce6ab48dc9d80e *NAMESPACE
+8f184c4c2da40318a9fc74618dd9a3d4 *R/allelematch.r
+20c8d3f97d93e2e318a22508275b5a02 *build/partial.rdb
 dceaebb80784b171e55e58a098268fa5 *data/amExample1.RData
 615dae35265d30da7680012be85f285d *data/amExample2.RData
 28dd10fb4b30c7ae67b66d3928d96595 *data/amExample3.RData
@@ -11,10 +11,10 @@ f6b5c4cf02deffa66ea3abbbb1b104cc *inst/CITATION
 261c4e319c3fc3aa905f8c198d35e39b *man/allelematch-package.Rd
 4f69509d4d13b3ee0820ee6d94f141b4 *man/amAlleleFreq.Rd
 b6f3592e0250238964220e1bf991fae1 *man/amCSSForHTML.Rd
-d989df700f562479976cfde9edbee3fc *man/amCluster.Rd
-fa2ea7779581df042acc3463538d8965 *man/amDataset.Rd
+625b3752cced522af4ed9b1707d41812 *man/amCluster.Rd
+94577c2e30fde9cff6e26019b1888a64 *man/amDataset.Rd
 1cbc79b02b452b0abee37468bbfa64f9 *man/amExampleData.Rd
 aa41d30bad59d83cab214c3667e682dd *man/amMatrix.Rd
-8ba397d87f36ff27410c868e0abf1488 *man/amPairwise.Rd
-a4545bb13ef65d4b99a9e28623ca1a42 *man/amUnique.Rd
+245bf1c2075c7ee052f74353b55342e2 *man/amPairwise.Rd
+a880502a61228c86a3ada73f5c3aefd5 *man/amUnique.Rd
 7cca7ab8e20ca382e162e400fedc068a *man/amUniqueProfile.Rd

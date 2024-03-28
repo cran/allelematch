@@ -19,29 +19,35 @@
 
 \usage{
 	amUnique(
-		amDatasetFocal, 
-		multilocusMap = NULL, 
-		alleleMismatch = NULL, 
-		matchThreshold = NULL, 
-		cutHeight = NULL, 
-		doPsib = "missing", 
-		consensusMethod = 1, 
-		verbose = FALSE
+		amDatasetFocal,
+		multilocusMap = NULL,
+		alleleMismatch = NULL,
+		matchThreshold = NULL,
+		cutHeight = NULL,
+		doPsib = "missing",
+		consensusMethod = 1,
+		verbose = TRUE
 		)
-	
+
 	amHTML.amUnique(
-		x, 
-		htmlFile = NULL, 
+		x,
+		htmlFile = NULL,
 		htmlCSS = amCSSForHTML()
 		)
 
 	amCSV.amUnique(
-		x, 
-		csvFile, 
+		x,
+		csvFile,
 		uniqueOnly = FALSE
 		)
-		
-		\method{summary}{amUnique}(object, html = NULL, csv = NULL, ...)
+
+
+  \method{summary}{amUnique}(
+    object,
+    html = NULL,
+    csv = NULL,
+    ...
+    )
 }
 
 \arguments{
@@ -112,11 +118,11 @@
 		See \code{\link{amCSSForHTML}} for details of how to tweak this CSS.
 	}
 	\item{html}{
-		If \code{html = TRUE}, the \code{summary} method produces and loads an HTML file in the
+		If \code{html = TRUE}, the \code{summary.amUnique} method produces and loads an HTML file in the
 		default browser.\cr
 		\code{html} can also contain a path to a file where HTML output will be
 		written.\cr
-		Note that \code{summary} does not produce formatted output for the
+		Note that \code{summary.amUnique} does not produce formatted output for the
 		console.
 	}
 	\item{csvFile, csv}{
@@ -128,14 +134,14 @@
 		with no additional information associated with the analysis.
 	}
 	\item{...}{
-		Additional arguments to \code{summary}
-	} 
+		Additional arguments to \code{summary.amUnique}
+	}
 }
 
 \details{
 	Only one of \code{alleleMismatch}, \code{cutHeight}, \code{matchThreshold} can be
 	specified, as the three parameters are related.\cr
-	
+
 	\code{alleleMismatch} is the most intuitive way to understand how the identification
 	of unique genotypes proceeds. For example, a setting of \code{alleleMismatch = 4}
 	implies that up to four alleles may be different for multiple samples to be
@@ -150,24 +156,24 @@
 	alleleMismatch/(number of allele columns)} and \code{matchThreshold} which is a
 	parameter for \code{\link{amPairwise}} and also called from this function is
 	\code{matchThreshold = 1 - cutHeight}.\cr
-	
+
 	Selecting the appropriate value for \code{alleleMismatch}, \code{cutHeight}, or
 	\code{matchThreshold} is an important task. Use \code{\link{amUniqueProfile}} to
 	assist in this process. Seethe Data S1 Supplementary documentation and tutorials (PDF)
 	located at <doi:10.1111/j.1755-0998.2012.03137.x>\cr
 
-	\code{doPsib = "missing"} is the default and specifies that match probability Psib 
+	\code{doPsib = "missing"} is the default and specifies that match probability Psib
 	should be calculated for samples that match unique genotypes and have no allele
 	mismatches, but may differ by having missing data. \code{doPsib = "all"} specifies
 	that Psib should be calculated for all samples that match unique genotypes. In this
 	case, if allele mismatches occur, alleles are assumed to be missing at the mismatching
 	loci.\cr
-	
+
 	\code{multilocusMap} is often not required, as amDataset objects will typically
 	consist of paired columns of genotypes, where each pair is a separate locus. In cases
 	where this is not the case (e.g., gender is in only one column), a map vector must be
 	specified.\cr
-	
+
 	Example: \code{amDataset} consists of gender followed by 4 diploid loci in paired
 	columns\cr
 	\code{multilocusMap = c(1, 2, 2, 3, 3, 4, 4, 5, 5)}\cr
@@ -212,44 +218,44 @@
 \examples{
 	\dontrun{
 	data("amExample2")
-	
+
 	## Produce amDataset object
-	myDataset <- 
+	myDataset <-
 		amDataset(
-			amExample2, 
-			missingCode = "-99", 
-			indexColumn = 1, 
+			amExample2,
+			missingCode = "-99",
+			indexColumn = 1,
 			ignoreColumn = 2
 			)
 
 	## Usage
 	## Optimal alleleMismatch parameter previously found using amUniqueProfile()
-	myUnique <- 
+	myUnique <-
 		amUnique(
-		myDataset, 
+		myDataset,
 		alleleMismatch = 3
 		)
 
 	## Display analysis as HTML in default browser
-	summary(
-		myUnique, 
+	summary.amUnique(
+		myUnique,
 		html = TRUE
 		)
 
 	## Save analysis to HTML file
-	summary(
+	summary.amUnique(
 		myUnique,
 		html = "myUnique.htm"
 		)
 
 	## Save analysis to a CSV file
-	summary(
-		myUnique, 
+	summary.amUnique(
+		myUnique,
 		csv = "myUnique.csv"
 		)
 
 	## Save unique genotypes only to a CSV file
-	summary(
+	summary.amUnique(
 		myUnique,
 		csv = "myUnique.csv",
 		uniqueOnly = TRUE
@@ -259,21 +265,21 @@
 	data("amExample5")
 
 	## Produce amDataset object
-	myDataset2 <- 
+	myDataset2 <-
 		amDataset(
-			amExample5, 
-			missingCode = "-99", 
+			amExample5,
+			missingCode = "-99",
 			indexColumn = 1,
 			metaDataColumn = 2
 			)
 
 	## Usage
 	## Optimal alleleMismatch parameter previously found using amUniqueProfile()
-	myUniqueProfile <- 
+	myUniqueProfile <-
 		amUnique(
 			myDataset2,
 			multilocusMap = c(1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10,
-			11, 11), 
+			11, 11),
 			alleleMismatch = 3
 			)
 

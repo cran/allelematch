@@ -22,26 +22,31 @@
 
 \usage{
 	amCluster(
-		amDatasetFocal, 
-		runUntilSingletons = TRUE, 
-		cutHeight = 0.3, 
-		missingMethod = 2, 
-		consensusMethod = 1, 
+		amDatasetFocal,
+		runUntilSingletons = TRUE,
+		cutHeight = 0.3,
+		missingMethod = 2,
+		consensusMethod = 1,
 		clusterMethod = "complete"
 		)
 
 	amHTML.amCluster(
-		x, 
-		htmlFile = NULL, 
+		x,
+		htmlFile = NULL,
 		htmlCSS = amCSSForHTML()
 		)
 
 	amCSV.amCluster(
-		x, 
+		x,
 		csvFile
 		)
 
-	\method{summary}{amCluster}(object, html = NULL, csv = NULL, ...)
+  \method{summary}{amCluster}(
+    object,
+		html = NULL,
+		csv = NULL,
+		...
+		)
 }
 
 \arguments{
@@ -91,7 +96,7 @@
 	\item{html}{
 		If \code{html = NULL} or \code{html=FALSE}, formatted textual output is displayed on the
 		console.\cr
-		If \code{html = TRUE}, the \code{summary} method produces and loads an HTML file in the
+		If \code{html = TRUE}, the \code{summary.amCluster} method produces and loads an HTML file in the
 		default browser.\cr
 		\code{html} can also contain a path to a file where HTML output will be written.
 	}
@@ -99,7 +104,7 @@
 		CSV filepath to create containing only the unique genotypes determined in the clustering.
 	}
 	\item{...}{
-		Additional arguments to \code{summary}
+		Additional arguments to \code{summary.amCluster}
 	}
 }
 
@@ -109,12 +114,12 @@
 	alleleMismatch (m-hat) and cutHeight (d-hat) will be done automatically. Selecting an
 	appropriate value for alleleMismatch (m-hat) can be done using \code{amUniqueProfile}. See the
 	supplementary documentation for an explanation of how these parameters are related.\cr
-	
+
 	\code{runUntilSingletons=TRUE} provides an efficient and reliable way to determine the unique
 	individuals in a dataset if the dataset meets certain criteria. To understand how the clustering
 	is thinning the dataset run this recursion manually using \code{runUntilSingletons=FALSE}. An
 	example is provided below.\cr
-	
+
 	\code{cutHeight} in practice gives the amount of dissimilarity (using the metric described in
 	\code{\link{amMatrix}}) required for two multilocus genotypes to be declared different (also
 	known as d-hat). The default setting for \code{consensusMethod} performs well.
@@ -161,79 +166,79 @@
 	data("amExample5")
 
 	## Produce amDataset object
-	myDataset <- 
+	myDataset <-
 		amDataset(
-			amExample5, 
-			missingCode = "-99", 
-			indexColumn = 1, 
-			metaDataColumn = 2, 
+			amExample5,
+			missingCode = "-99",
+			indexColumn = 1,
+			metaDataColumn = 2,
 			ignoreColumn = "gender"
 			)
 
 	## Usage
-	myCluster <- 
+	myCluster <-
 		amCluster(
-			myDataset, 
+			myDataset,
 			cutHeight = 0.2
 			)
 
 	## Display analysis as HTML in default browser
-	summary(
-		myCluster, 
+	summary.amCluster(
+		myCluster,
 		html = TRUE
 		)
 
 	## Save analysis to HTML file
-	summary(
-		myCluster, 
+	summary.amCluster(
+		myCluster,
 		html = "myCluster.htm"
 		)
 
 	## Display analysis as formatted text on the console
-	summary(myCluster)
+	summary.amCluster(myCluster)
 
 	## Save unique genotypes only to a CSV file
-	summary(
-		myCluster, 
+	summary.amCluster(
+		myCluster,
 		csv = "myCluster.csv"
 		)
 
 	## Demonstration of how amCluster operates
 	## Manual control over the recursion in amCluster()
-	summary(
-		myCluster1 <- 
+	summary.amCluster(
+		myCluster1 <-
 			amCluster(
-				myDataset, 
-				runUntilSingletons = FALSE, 
-				cutHeight = 0.2
-				), 
-			html = TRUE
-			)
-	summary(
-		myCluster2 <- 
-			amCluster(
-				myCluster1$unique, 
-				runUntilSingletons = FALSE, 
+				myDataset,
+				runUntilSingletons = FALSE,
 				cutHeight = 0.2
 				),
 			html = TRUE
 			)
-	summary(
-		myCluster3 <- 
+	summary.amCluster(
+		myCluster2 <-
 			amCluster(
-				myCluster2$unique, 
-				runUntilSingletons = FALSE, 
+				myCluster1$unique,
+				runUntilSingletons = FALSE,
 				cutHeight = 0.2
-				), 
+				),
 			html = TRUE
 			)
-	summary(
-		myCluster4 <- 
+	summary.amCluster(
+		myCluster3 <-
 			amCluster(
-				myCluster3$unique, 
-				runUntilSingletons = FALSE, 
+				myCluster2$unique,
+				runUntilSingletons = FALSE,
 				cutHeight = 0.2
-				), 
+				),
+			html = TRUE
+			)
+	summary.amCluster(
+		myCluster4 <-
+			amCluster(
+				myCluster3$unique,
+				runUntilSingletons = FALSE,
+				cutHeight = 0.2
+				),
 			html = TRUE
 			)
 	## No more clusters, therefore stop.

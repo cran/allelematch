@@ -18,26 +18,30 @@
 
 \usage{
 	amPairwise(
-		amDatasetFocal, 
-		amDatasetComparison = amDatasetFocal, 
-		alleleMismatch = NULL, 
-		matchThreshold = NULL, 
+		amDatasetFocal,
+		amDatasetComparison = amDatasetFocal,
+		alleleMismatch = NULL,
+		matchThreshold = NULL,
 		missingMethod = 2
 		)
 
 	amHTML.amPairwise(
-		x, 
-		htmlFile = NULL, 
+		x,
+		htmlFile = NULL,
 		htmlCSS = amCSSForHTML()
 		)
 
 	amCSV.amPairwise(
-		x, 
+		x,
 		csvFile
 		)
 
-	\method{summary}{amPairwise}(object, html = NULL, csv = NULL, ...)
-
+  \method{summary}{amPairwise}(
+    object,
+    html = NULL,
+    csv = NULL,
+    ...
+    )
 }
 
 \arguments{
@@ -80,7 +84,7 @@
 	\item{html}{
 		If \code{html = NULL} or \code{html=FALSE}, formatted textual output is displayed on the
 		console.\cr
-		If \code{html = TRUE}, the \code{summary} method produces and loads an HTML file in the
+		If \code{html = TRUE}, the \code{summary.amPairwise} method produces and loads an HTML file in the
 		default browser.\cr
 		\code{html} can also contain a path to a file where HTML output will be written.
 	}
@@ -89,7 +93,7 @@
 		matching results.
 	}
 	\item{...}{
-		Additional arguments to \code{summary}.
+		Additional arguments to \code{summary.amPairwise}.
 	}
 }
 
@@ -107,7 +111,7 @@
 \note{
 	As \code{matchThreshold} is lowered, the size of the output increases rapidly. Typically
 	analyses will not be very useful or manageable with thresholds below 0.7.\cr
-	
+
 	There is an additional side effect of \code{html = TRUE} (or of \code{htmlFile = NULL}). If
 	required, there is a clean up of the operating system temporary directory where AlleleMatch
 	temporary HTML files are stored. Files that match the pattern am*.html and are older 24 hours
@@ -137,68 +141,68 @@
 	data("amExample5")
 
 	## Produce amDataset object
-	myDataset <- 
+	myDataset <-
 		amDataset(
-			amExample5, 
-			missingCode = "-99", 
-			indexColumn = 1, 
-			metaDataColumn = 2, 
+			amExample5,
+			missingCode = "-99",
+			indexColumn = 1,
+			metaDataColumn = 2,
 			ignoreColumn = "gender"
 			)
 
 	## Typical usage
-	myPairwise <- 
+	myPairwise <-
 		amPairwise(
-			myDataset, 
+			myDataset,
 			alleleMismatch = 2
 			)
 
 	## Display analysis as HTML in default browser
-	summary(
-		myPairwise, 
+	summary.amPairwise(
+		myPairwise,
 		html = TRUE
 		)
 
 	## Save analysis to HTML file
-	summary(
-		myPairwise, 
+	summary.amPairwise(
+		myPairwise,
 		html = "myPairwise.htm"
 		)
 
 	## Save analysis to CSV file
-	summary(
-		myPairwise, 
+	summary.amPairwise(
+		myPairwise,
 		csv = "myPairwise.csv"
 		)
 
 	## Display analysis as formatted text on the console
-	summary(myPairwise)
+	summary.amPairwise(myPairwise)
 
 	## Compare one dataset against a second
 	## Both must have same number of allele columns
 	## Here we create two datasets artificially from one for illustration purposes
-	myDatasetA <- 
+	myDatasetA <-
 		amDataset(
-			amExample5[sample(nrow(amExample5))[1:25], ], 
-			missingCode = "-99", 
-			indexColumn = 1, 
+			amExample5[sample(nrow(amExample5))[1:25], ],
+			missingCode = "-99",
+			indexColumn = 1,
 			ignoreColumn = 2
 			)
-	myDatasetB <- 
+	myDatasetB <-
 		amDataset(
-			amExample5[sample(nrow(amExample5))[1:100], ], 
-			missingCode = "-99", 
-			indexColumn = 1, 
+			amExample5[sample(nrow(amExample5))[1:100], ],
+			missingCode = "-99",
+			indexColumn = 1,
 			ignoreColumn = 2
 			)
-	myPairwise2 <- 
+	myPairwise2 <-
 		amPairwise(
-			myDatasetA, 
-			myDatasetB, 
+			myDatasetA,
+			myDatasetB,
 			alleleMismatch = 3
 			)
-	summary(
-		myPairwise2, 
+	summary.amPairwise(
+		myPairwise2,
 		html = TRUE
 		)
 	}
