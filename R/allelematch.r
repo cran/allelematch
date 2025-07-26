@@ -1,11 +1,11 @@
 ## allelematch R Package
-## v2.5.4
+## v2.5.5
 ## allelematch:  Pairwise matching and identification of unique multilocus genotypes
 ##
 ## by Paul Galpern
 ## License: GPL-2
 ##
-## Last update: 28 March 2024
+## Last update: 26 July 2025
 ##
 ## N.B. Renamed from MicroSatMatch as of v1.1
 ##

@@ -61,9 +61,8 @@
 		See details and examples.
 	}
 	\item{cutHeight}{
-		Sets the tree cutting height using the hybrid method in the \code{\link{dynamicTreeCut}}
-		package.\cr
-		See details and \code{\link{cutreeHybrid}} for more information.
+		Sets the tree cutting height using the hybrid method in \link[dynamicTreeCut]{cutreeHybrid}.\cr
+		See details and \link[dynamicTreeCut]{cutreeHybrid} for more information.
 	}
 	\item{missingMethod}{
 		The method used to determine the similarity of multilocus genotypes when data is missing.\cr
