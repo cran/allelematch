@@ -1,28 +1,24 @@
 ## allelematch R Package
-## v2.5.5
-## allelematch:  Pairwise matching and identification of unique multilocus genotypes
+## v2.6.0
+## allelematch: Pairwise matching and identification of unique multilocus genotypes
 ##
 ## by Paul Galpern
 ## License: GPL-2
 ##
-## Last update: 26 July 2025
+## Last update: 28 June 2026
 ##
 ## N.B. Renamed from MicroSatMatch as of v1.1
 ##
 ## Functions:
 ## amDataset()             Produces an input dataset object for allelematch routines
 ## print.amDataset()       Print method for amDataset objects
-
+## amPreCheck()            Pre-screens an amDataset object for severe missing data loads
 ## amMatrix()              Produce a dissimilarity matrix
-
 ## amPairwise()            Pairwise matching of genotypes
 ## summary.amPairwise()    Summary method for amPairwise objects
-
 ## amCluster()             Clustering of genotypes
 ## summary.amCluster()     Summary method for amCluster objects
-
 ## amAlleleFreq()          Produces allele frequencies from an amDataset object
-
 ## amUnique()              Identification of unique genotypes
 ## amUniqueProfile()       Utility to find optimal parameters for amUnique()
 ## summary.amUnique()      Summary method for amUnique objects
@@ -39,143 +35,132 @@ amDataset <-
            indexColumn = NULL,
            metaDataColumn = NULL,
            ignoreColumn = NULL) {
-    ## Create amDataset object
     newDataset <- list()
     class(newDataset) <- "amDataset"
 
-    ## Check function call variables for validity
     if (is.null(dim(multilocusDataset)))
-      stop("allelematch:  multilocusDataset must be a matrix or a data.frame",
+      stop("allelematch: multilocusDataset must be a matrix or a data.frame",
            call. = FALSE)
+
     if ((
       is.character(indexColumn) ||
-      is.character(metaDataColumn) ||
-      is.character(ignoreColumn)) &&
-      is.null(dimnames(multilocusDataset)[[2]])) {
+      is.character(metaDataColumn) || is.character(ignoreColumn)
+    ) &&
+    is.null(dimnames(multilocusDataset)[[2]])) {
       stop(
-        "allelematch:  multilocusDataset does not have dimnames()[[2]] set; use integer column indices or set dimnames()",
+        "allelematch: multilocusDataset does not have dimnames()[[2]] set; use integer column indices or set dimnames()",
         call. = FALSE
       )
     }
+
     if (!is.null(indexColumn)) {
       if (length(indexColumn) > 1)
-        stop("allelematch:  only one indexColumn permitted", call. = FALSE)
+        stop("allelematch: only one indexColumn permitted", call. = FALSE)
       if (is.character(indexColumn)) {
-        indexColumnWhich <-
-          which(indexColumn == dimnames(multilocusDataset)[[2]])
+        indexColumnWhich <- which(indexColumn == dimnames(multilocusDataset)[[2]])
         if (length(indexColumnWhich) == 0)
-          stop("allelematch:  indexColumn does not exist in multilocusDataset",
+          stop("allelematch: indexColumn does not exist in multilocusDataset",
                call. = FALSE)
       } else {
         indexColumnWhich <- indexColumn
-        if (length(indexColumn))
-          if (indexColumnWhich > ncol(multilocusDataset))
-            stop("allelematch:  indexColumn does not exist in multilocusDataset",
-                 call. = FALSE)
+        if (length(indexColumn) &&
+            indexColumnWhich > ncol(multilocusDataset)) {
+          stop("allelematch: indexColumn does not exist in multilocusDataset",
+               call. = FALSE)
+        }
       }
     } else {
       indexColumnWhich <- 0
     }
+
     if (!is.null(metaDataColumn)) {
       if (length(metaDataColumn) > 1)
-        stop("allelematch:  only one metaDataColumn permitted", call. = FALSE)
+        stop("allelematch: only one metaDataColumn permitted", call. = FALSE)
       if (is.character(metaDataColumn)) {
-        metaDataColumnWhich <-
-          which(metaDataColumn == dimnames(multilocusDataset)[[2]])
+        metaDataColumnWhich <- which(metaDataColumn == dimnames(multilocusDataset)[[2]])
         if (length(metaDataColumnWhich) == 0)
-          stop("allelematch:  metaDataColumn does not exist in multilocusDataset",
+          stop("allelematch: metaDataColumn does not exist in multilocusDataset",
                call. = FALSE)
       } else {
         metaDataColumnWhich <- metaDataColumn
-        # if (length(metaDataColumn))
-          if (metaDataColumnWhich > ncol(multilocusDataset))
-            stop("allelematch:  metaDataColumn does not exist in multilocusDataset",
-                 call. = FALSE)
+        if (metaDataColumnWhich > ncol(multilocusDataset))
+          stop("allelematch: metaDataColumn does not exist in multilocusDataset",
+               call. = FALSE)
       }
     } else {
       metaDataColumnWhich <- 0
     }
+
     if (!is.null(ignoreColumn)) {
       if (is.character(ignoreColumn)) {
-        ignoreColumnWhich <-
-          which(as.logical(rowSums(
-            sapply(ignoreColumn, function(x)
-              x == dimnames(multilocusDataset)[[2]])
-          )))
+        ignoreColumnWhich <- which(dimnames(multilocusDataset)[[2]] %in% ignoreColumn)
         if (length(ignoreColumnWhich) != length(ignoreColumn))
           stop(
-            "allelematch:  one or more ignoreColumn does not exist in multilocusDataset",
+            "allelematch: one or more ignoreColumn does not exist in multilocusDataset",
             call. = FALSE
           )
       } else {
         ignoreColumnWhich <- ignoreColumn
-        # if (length(ignoreColumn))
-          if (any(ignoreColumnWhich > ncol(multilocusDataset)))
-            stop(
-              "allelematch:  one or more ignoreColumn does not exist in multilocusDataset",
-              call. = FALSE
-            )
+        if (any(ignoreColumnWhich > ncol(multilocusDataset)))
+          stop(
+            "allelematch: one or more ignoreColumn does not exist in multilocusDataset",
+            call. = FALSE
+          )
       }
     } else {
       ignoreColumnWhich <- 0
     }
 
-    ## Prepare multilocusDataset
-    columnDataset <- dimnames(multilocusDataset)[[2]]
-    multilocusDataset <-
-      t(apply(multilocusDataset, 1, as.character))
-
-    ## Change NA data to the missingCode
-    if (sum(is.na(multilocusDataset)) > 0) {
-      multilocusDataset[is.na(multilocusDataset)] <- missingCode
-      cat("allelematch:  NA data converted to", missingCode, "\n")
+    columnDataset <- colnames(multilocusDataset)
+    # Force everything to character BEFORE matrix conversion
+    # If it's a data.frame, convert factors to character strings first
+    if (is.data.frame(multilocusDataset)) {
+      multilocusDataset <- data.frame(lapply(multilocusDataset, as.character),
+                                      stringsAsFactors = FALSE)
     }
+
+    # Now conversion to matrix will preserve the actual strings
+    multilocusDataset <- as.matrix(multilocusDataset)
+
+    if (anyNA(multilocusDataset)) {
+      multilocusDataset[is.na(multilocusDataset)] <- missingCode
+      cat("allelematch: NA data converted to ", missingCode, "\n", sep = "")
+    }
+
     newDataset$index <- multilocusDataset[, indexColumnWhich]
     newDataset$metaData <- multilocusDataset[, metaDataColumnWhich]
-    keepTheseColumns <-
-      1:ncol(multilocusDataset) %in% c(indexColumnWhich, metaDataColumnWhich, ignoreColumnWhich)
+    keepTheseColumns <- 1:ncol(multilocusDataset) %in% c(indexColumnWhich, metaDataColumnWhich, ignoreColumnWhich)
+
     if (sum(!keepTheseColumns) < 3)
-      stop("allelematch:  at least three data columns are required for allelematch",
+      stop("allelematch: at least three data columns are required for allelematch",
            call. = FALSE)
+
     newDataset$multilocus <- multilocusDataset[, !keepTheseColumns]
-    ## Remove spaces from the multilocus and index columns (overcomes problems caused by space padding that may crop up)
-    newDataset$multilocus <-
-      t(apply(newDataset$multilocus, 1, function(x)
-        gsub(" ", "", x)))
+    newDataset$multilocus[] <- gsub(" ", "", newDataset$multilocus, fixed = TRUE)
     newDataset$index <- gsub(" ", "", newDataset$index)
     columnDataset <- columnDataset[!keepTheseColumns]
-    ## Assign index and multilocus column names if not given
+
     if (length(newDataset$index) == 0) {
-      if (nrow(newDataset$multilocus) > 17576) {
-        ## N.B. 17576 is length of labelRepository (below)
+      if (nrow(newDataset$multilocus) > 17576)
         stop(
-          "allelematch:  too many samples for automatic assignment of index;  please provide an index column",
+          "allelematch: too many samples for automatic assignment of index; please provide an index column",
           call. = FALSE
         )
-      }
-      ## Produce a vector of possible index or column name labels
-      labelRepository <-
-        as.character(apply(cbind(rep(1:26, each = 26 * 26),
-                                 do.call(rbind, lapply(1:26, function(x)
-                                   cbind(rep(1:26, each = 26), rep(1:26, times = 26))))), 1, function(x)
-                                     paste(LETTERS[x[1]], LETTERS[x[2]], LETTERS[x[3]], sep =
-                                             "")))
-
-      newDataset$index <-
-        labelRepository[1:nrow(newDataset$multilocus)]
+      grid <- expand.grid(LETTERS, LETTERS, LETTERS)
+      labelRepository <- paste0(grid$Var3, grid$Var2, grid$Var1)
+      newDataset$index <- labelRepository[1:nrow(newDataset$multilocus)]
     }
-    if (length(newDataset$metaData) == 0) {
+    if (length(newDataset$metaData) == 0)
       newDataset$metaData <- NULL
-    }
+
     if (is.null(columnDataset)) {
-      dimnames(newDataset$multilocus)[[2]] <-
-        paste("loc", 1:ncol(newDataset$multilocus), sep = "")
+      dimnames(newDataset$multilocus)[[2]] <- paste0("loc", 1:ncol(newDataset$multilocus))
     } else {
       dimnames(newDataset$multilocus)[[2]] <- columnDataset
     }
 
-    if (sum(duplicated(newDataset$index)) > 0)
-      stop("allelematch:  index column should contain a unique identifier for each sample",
+    if (anyDuplicated(newDataset$index) > 0)
+      stop("allelematch: index column should contain a unique identifier for each sample",
            call. = FALSE)
 
     if (is.na(missingCode)) {
@@ -190,71 +175,67 @@ amDataset <-
 
 #### print.amDataset() ####
 print.amDataset <- function(x, ...) {
-  cat("allelematch\namDataset object\n")
-  if (!is.null(x$metaData)) {
-    xPretty <- paste(format(x$index), format(x$metaData), sep = "  ")
-  } else {
-    xPretty <- format(x$index)
-  }
-  xPrint <- data.frame(x$multilocus, row.names = xPretty)
-  print(xPrint)
+  cat("allelematch\namDataset object\n\n")
+
+  # 1. Print the index component
+  cat("$index\n")
+  print(x$index)
+  cat("\n")
+
+  # 2. Print the multilocus matrix
+  cat("$multilocus\n")
+
+  # To match the old format (matrix with row/col labels),
+  # print the matrix directly rather than converting to data.frame
+  print(x$multilocus)
+
+  # 3. Print the missingCode component
+  cat("\n$missingCode\n")
+  print(x$missingCode)
 }
 
 
 #### amMatrix() ####
 amMatrix <- function(amDatasetFocal, missingMethod = 2) {
-  ## Check function call variables for validity
   if (!inherits(amDatasetFocal, "amDataset"))
     stop(
-      "allelematch:  amDatasetFocal must be an object of class \"amDataset\";  use amDataset() first",
+      "allelematch: amDatasetFocal must be an object of class \"amDataset\"; use amDataset() first",
       call. = FALSE
     )
   if (!(missingMethod %in% c(1, 2)))
-    stop("allelematch:  missingMethod must equal 1 or 2", call. = FALSE)
+    stop("allelematch: missingMethod must equal 1 or 2", call. = FALSE)
 
-  ## Create variables from amDatasetFocal object
   numGenotypes <- nrow(amDatasetFocal$multilocus)
   genotypes <- amDatasetFocal$multilocus
-  ## Set missing data to NA for convenience
   genotypes[genotypes == amDatasetFocal$missingCode] <- NA
+  matchMatrix <- matrix(0, nrow = numGenotypes, ncol = numGenotypes)
 
-  ## Empty data structure to store results
-  simMatrix <- matrix(, nrow = numGenotypes, ncol = numGenotypes)
-
-  ## Determine allele similarity score
-  for (i in 1:numGenotypes) {
-    if (missingMethod > 0) {
-      if (missingMethod == 1)
-        missingMultiplier <- 0.25
-      else
-        missingMultiplier <- 0.5
-
-      ## Treat missing data in either the focal or comparison genotype as a partial match except:
-      ##      When missingMethod=2 missing data matches perfectly with missing data
-      ##      When missingMethod=1 missing data matches partially with missing data
-      simMatrix[i,] <-
-        as.double(
-          rowSums(genotypes[rep(i, numGenotypes),] == genotypes, na.rm = TRUE) +
-            rowSums(is.na(genotypes) * missingMultiplier) + sum(is.na(genotypes[i,]) * missingMultiplier)
-        )
-    } else {
-      ## Treat missing data in the focal genotype, or missing data in the comparison genotype, or missing data matching in both as a match
-      ##simMatrix[i,] <- as.double(rowSums(genotypes[rep(i, numGenotypes),]==genotypes, na.rm=TRUE) +
-      ##                                                  rowSums(is.na(genotypes) | is.na(genotypes[i,])))
-      stop("allelematch:  missingMethod=0 is currently not implemented",
-           call. = FALSE)
-    }
+  for (col in 1:ncol(genotypes)) {
+    col_val <- genotypes[, col]
+    match_mat <- outer(col_val, col_val, "==")
+    match_mat[is.na(match_mat)] <- FALSE
+    matchMatrix <- matchMatrix + match_mat
   }
 
-  ## Turn matches into a percent and make it a dissimilarity
+  missingMultiplier <- if (missingMethod == 1)
+    0.25
+  else
+    0.5
+  comparisonMissing <- rowSums(is.na(genotypes)) * missingMultiplier
+
+  simMatrix <- matchMatrix +
+    matrix(comparisonMissing,
+           nrow = numGenotypes,
+           ncol = numGenotypes,
+           byrow = TRUE) +
+    matrix(comparisonMissing,
+           nrow = numGenotypes,
+           ncol = numGenotypes,
+           byrow = FALSE)
+
+  storage.mode(simMatrix) <- "double"
   dissimMatrix <- 1 - (simMatrix / ncol(genotypes))
-
-  ## Add labels to dissimilarity matrix
-  dimnames(dissimMatrix) <-
-    list(amDatasetFocal$index, amDatasetFocal$index)
-
-  ## Note that the matrix produced has a non-zero diagonal when missingMethod=0 or 1
-  ## This doesn't affect analyses downstream
+  dimnames(dissimMatrix) <- list(amDatasetFocal$index, amDatasetFocal$index)
   class(dissimMatrix) <- "amMatrix"
   return(dissimMatrix)
 }
@@ -267,45 +248,35 @@ amPairwise <-
            alleleMismatch = NULL,
            matchThreshold = NULL,
            missingMethod = 2) {
-    ## Check function call variables for validity
     if ((!inherits(amDatasetFocal, "amDataset")) ||
         (!inherits(amDatasetComparison, "amDataset"))) {
       stop(
-        "allelematch:  amDatasetFocal and amDatasetComparison must be an object of class \"amDataset\";  use amDataset() first",
+        "allelematch: amDatasetFocal and amDatasetComparison must be an object of class \"amDataset\"; use amDataset() first",
         call. = FALSE
       )
     }
     if (!(missingMethod %in% c(1, 2)))
-      stop("allelematch:  missingMethod must equal 1 or 2", call. = FALSE)
-
-    ## More checking of input parameters
+      stop("allelematch: missingMethod must equal 1 or 2", call. = FALSE)
     if (sum(!(c(
       is.null(alleleMismatch), is.null(matchThreshold)
-    ))) != 1) {
-      stop("allelematch:  please specify alleleMismatch OR matchThreshold.",
+    ))) != 1)
+      stop("allelematch: please specify alleleMismatch OR matchThreshold.",
            call. = FALSE)
-    }
-    if (length(c(alleleMismatch, matchThreshold)) > 1) {
+    if (length(c(alleleMismatch, matchThreshold)) > 1)
       stop(
-        "allelematch:  please provide a single parameter value for alleleMismatch OR matchThreshold.",
+        "allelematch: please provide a single parameter value for alleleMismatch OR matchThreshold.",
         call. = FALSE
       )
-    }
 
     if (!is.null(matchThreshold)) {
-      if ((matchThreshold < 0) || (matchThreshold > 1)) {
-        stop("allelematch:  matchThreshold must be between 0 and 1",
-             call. = FALSE)
-      }
-      alleleMismatch <-
-        round((1 - matchThreshold) * ncol(amDatasetFocal$multilocus), 2)
-    }
-    else if (!is.null(alleleMismatch)) {
-      matchThreshold <-
-        1 - (alleleMismatch / ncol(amDatasetFocal$multilocus))
+      if ((matchThreshold < 0) ||
+          (matchThreshold > 1))
+        stop("allelematch: matchThreshold must be between 0 and 1", call. = FALSE)
+      alleleMismatch <- round((1 - matchThreshold) * ncol(amDatasetFocal$multilocus), 2)
+    } else if (!is.null(alleleMismatch)) {
+      matchThreshold <- 1 - (alleleMismatch / ncol(amDatasetFocal$multilocus))
     }
 
-    ## Put amDataset object into convenience variables
     focalGenotypes <- amDatasetFocal$multilocus
     comparisonGenotypes <- amDatasetComparison$multilocus
     indexFocal <- amDatasetFocal$index
@@ -314,189 +285,109 @@ amPairwise <-
     metaDataComparison <- amDatasetComparison$metaData
     columnNames <- dimnames(amDatasetFocal$multilocus)[[2]]
 
-    ## Check focal and comparison datasets have the same number of loci, column names, and missing cdodes
-    if (ncol(focalGenotypes) != ncol(comparisonGenotypes))  {
+    if (ncol(focalGenotypes) != ncol(comparisonGenotypes))
       stop(
-        "allelematch:  amDatasetFocal and amDatasetComparison must have the same number of columns / loci",
+        "allelematch: amDatasetFocal and amDatasetComparison must have the same number of columns / loci",
         call. = FALSE
       )
-    }
     if (any(
       dimnames(amDatasetFocal$multilocus)[[2]] != dimnames(amDatasetComparison$multilocus)[[2]]
-    )) {
+    ))
       stop(
-        "allelematch:  amDatasetFocal and amDatasetComparison must have columns with the same names",
+        "allelematch: amDatasetFocal and amDatasetComparison must have columns with the same names",
         call. = FALSE
       )
-    }
-    if (amDatasetFocal$missingCode != amDatasetComparison$missingCode) {
+    if (amDatasetFocal$missingCode != amDatasetComparison$missingCode)
       stop(
-        "allelematch:  amDatasetFocal and amDatasetComparison must have same missingCode",
+        "allelematch: amDatasetFocal and amDatasetComparison must have same missingCode",
         call. = FALSE
       )
-    }
 
-    ## Set missingCodes to NA
-    focalGenotypes[focalGenotypes == amDatasetFocal$missingCode] <-
-      NA
-    comparisonGenotypes[comparisonGenotypes == amDatasetComparison$missingCode] <-
-      NA
+    focalGenotypes[focalGenotypes == amDatasetFocal$missingCode] <- NA
+    comparisonGenotypes[comparisonGenotypes == amDatasetComparison$missingCode] <- NA
 
     numFocalGenotypes <- nrow(focalGenotypes)
     numComparisonGenotypes <- nrow(comparisonGenotypes)
-
-    ## Empty data structures to store results
-    simMatrix <-
-      matrix(, nrow = numFocalGenotypes, ncol = numComparisonGenotypes)
+    simMatrix <- matrix(, nrow = numFocalGenotypes, ncol = numComparisonGenotypes)
     pairwiseMatches <- vector("list", numFocalGenotypes)
 
-    ## Determine allele similarity score
+    missingMultiplier <- if (missingMethod == 1)
+      0.25
+    else
+      0.5
+    compMissingSums <- rowSums(is.na(comparisonGenotypes)) * missingMultiplier
+    focalMissingSums <- rowSums(is.na(focalGenotypes)) * missingMultiplier
+
     for (i in 1:numFocalGenotypes) {
-      if (missingMethod > 0) {
-        if (missingMethod == 1)
-          missingMultiplier = 0.25
-        else
-          missingMultiplier <- 0.5
+      focal_row <- focalGenotypes[i, ]
+      match_count <- rowSums(comparisonGenotypes == rep(focal_row, each = numComparisonGenotypes),
+                             na.rm = TRUE)
 
-        ## Treat missing data in either the focal or comparison genotype as a partial match except:
-        ##      When missingMethod=2 missing data matches perfectly with missing data
-        ##      When missingMethod=1 missing data matches partially with missing data
-        simMatrix[i,] <-
-          as.double(
-            rowSums(focalGenotypes[rep(i, numComparisonGenotypes),] == comparisonGenotypes, na.rm =
-                      TRUE) +
-              rowSums(is.na(comparisonGenotypes) * missingMultiplier) + sum(is.na(focalGenotypes[i,]) * missingMultiplier)
-          )
-      } else {
-        ## Treat missing data in the focal genotype, or missing data in the comparison genotype, or missing data matching in both as a match
-        ##simMatrix[i,] <- as.double(rowSums(focalGenotypes[rep(i, numComparisonGenotypes),]==comparisonGenotypes, na.rm=TRUE) +
-        ##                                                rowSums(is.na(comparisonGenotypes) | is.na(focalGenotypes[i,])))
-        stop("allelematch:  missingMethod=0 is currently not implemented",
-             call. = FALSE)
-      }
+      simMatrix[i, ] <- as.double(match_count + compMissingSums + focalMissingSums[i])
+      simMatrix[i, ] <- simMatrix[i, ] / ncol(focalGenotypes)
+      pairwiseMatchesWhich <- which(simMatrix[i, ] >= matchThreshold)
+      pairwiseMatchesScores <- signif(simMatrix[i, pairwiseMatchesWhich], 2)
 
-      ## Determine which comparison genotypes meet the threshold
-      simMatrix <- simMatrix / ncol(focalGenotypes)
-      pairwiseMatchesWhich <-
-        which(simMatrix[i, ]  >= matchThreshold)
-      pairwiseMatchesScores <-
-        signif(simMatrix[i, pairwiseMatchesWhich], 2)
+      pairwiseMatches[[i]]$focal <- list(
+        index = indexFocal[i],
+        metaData = metaDataFocal[i],
+        multilocus = t(focalGenotypes[i, ])
+      )
+      dimnames(pairwiseMatches[[i]]$focal$multilocus)[[2]] <- columnNames
+      pairwiseMatches[[i]]$focal$flags <- matrix(as.integer(is.na(pairwiseMatches[[i]]$focal$multilocus)) + 1, 1, ncol = length(columnNames))
+      pairwiseMatches[[i]]$focal$multilocus[is.na(pairwiseMatches[[i]]$focal$multilocus)] <- amDatasetFocal$missingCode
 
-      ## Focal genotype
-      pairwiseMatches[[i]]$focal <-
-        list(
-          index = indexFocal[i],
-          metaData = metaDataFocal[i],
-          multilocus = t(focalGenotypes[i,])
-        )
-      ## Set column names on multilocus
-      dimnames(pairwiseMatches[[i]]$focal$multilocus)[[2]] <-
-        columnNames
-      ## Flag missing genotypes
-      pairwiseMatches[[i]]$focal$flags <-
-        matrix(as.integer(is.na(pairwiseMatches[[i]]$focal$multilocus)) + 1, 1, ncol =
-                 length(columnNames))
-      ## Return missing codes to multilocus
-      pairwiseMatches[[i]]$focal$multilocus[is.na(pairwiseMatches[[i]]$focal$multilocus)] <-
-        amDatasetFocal$missingCode
+      pairwiseMatches[[i]]$match <- list(
+        index = NULL,
+        metaData = NULL,
+        multilocus = NULL,
+        score = NULL
+      )
 
-      ## Comparison or "matching" genotype
-      pairwiseMatches[[i]]$match <-
-        list(
-          index = NULL,
-          metaData = NULL,
-          multilocus = NULL,
-          score = NULL
-        )
-      ## No matches
       if (length(pairwiseMatchesWhich) == 0) {
         pairwiseMatches[[i]]$match$index <- "None"
-        if (!is.null(metaDataFocal[i])) {
-          pairwiseMatches[[i]]$match$metaData <- ""
-        } else {
-          pairwiseMatches[[i]]$match$metaData <- NULL
-        }
-        pairwiseMatches[[i]]$match$multilocus <-
-          matrix(, 1, length(columnNames))
-        pairwiseMatches[[i]]$match$multilocus[1, ] <-
-          rep("", length(columnNames))
+        pairwiseMatches[[i]]$match$metaData <- if (!is.null(metaDataFocal[i]))
+          ""
+        else
+          NULL
+        pairwiseMatches[[i]]$match$multilocus <- matrix("", 1, length(columnNames))
         pairwiseMatches[[i]]$match$score <- ""
-        pairwiseMatches[[i]]$match$flags <-
-          matrix(1, nrow = 1, ncol = length(columnNames))
+        pairwiseMatches[[i]]$match$flags <- matrix(1, nrow = 1, ncol = length(columnNames))
         pairwiseMatches[[i]]$match$perfect <- 0
         pairwiseMatches[[i]]$match$partial <- 0
-      } else { ## One or more matches
-        pairwiseMatches[[i]]$match$multilocus <-
-          matrix(, length(pairwiseMatchesWhich), length(columnNames))
-        for (j in 1:length(pairwiseMatchesWhich)) {
-          pairwiseMatches[[i]]$match$index[j] <-
-            indexComparison[pairwiseMatchesWhich[j]]
-          pairwiseMatches[[i]]$match$metaData[j] <-
-            metaDataComparison[pairwiseMatchesWhich[j]]
-          pairwiseMatches[[i]]$match$multilocus[j, ] <-
-            comparisonGenotypes[pairwiseMatchesWhich[j], ]
-          pairwiseMatches[[i]]$match$score[j] <-
-            format(signif(pairwiseMatchesScores[j], 2))
-        }
-        ## Sort in decreasing order if two or more matches
+      } else {
+        pairwiseMatches[[i]]$match$index <- indexComparison[pairwiseMatchesWhich]
+        pairwiseMatches[[i]]$match$metaData <- metaDataComparison[pairwiseMatchesWhich]
+        pairwiseMatches[[i]]$match$multilocus <- comparisonGenotypes[pairwiseMatchesWhich, , drop = FALSE]
+        pairwiseMatches[[i]]$match$score <- format(signif(pairwiseMatchesScores, 2))
+
         if (nrow(pairwiseMatches[[i]]$match$multilocus) > 1) {
-          pairwiseMatches[[i]]$match$index <-
-            pairwiseMatches[[i]]$match$index[order(pairwiseMatchesScores, decreasing =
-                                                     TRUE)]
-          pairwiseMatches[[i]]$match$metaData <-
-            pairwiseMatches[[i]]$match$metaData[order(pairwiseMatchesScores, decreasing =
-                                                        TRUE)]
-          pairwiseMatches[[i]]$match$multilocus <-
-            pairwiseMatches[[i]]$match$multilocus[order(pairwiseMatchesScores, decreasing =
-                                                          TRUE),]
-          pairwiseMatches[[i]]$match$score <-
-            pairwiseMatches[[i]]$match$score[order(pairwiseMatchesScores, decreasing =
-                                                     TRUE)]
+          ord <- order(pairwiseMatchesScores, decreasing = TRUE)
+          pairwiseMatches[[i]]$match$index <- pairwiseMatches[[i]]$match$index[ord]
+          pairwiseMatches[[i]]$match$metaData <- pairwiseMatches[[i]]$match$metaData[ord]
+          pairwiseMatches[[i]]$match$multilocus <- pairwiseMatches[[i]]$match$multilocus[ord, , drop = FALSE]
+          pairwiseMatches[[i]]$match$score <- pairwiseMatches[[i]]$match$score[ord]
         }
-        ## Create match flags for display purposes
-        ## 0 = alleles do not match
-        ## 1 = alleles match
-        ## 2 = alleles are missing or alleles are missing in focal but present in comparison
 
-        ## Set all flags to matching
-        pairwiseMatches[[i]]$match$flags <-
-          matrix(
-            1,
-            nrow(pairwiseMatches[[i]]$match$multilocus),
-            ncol(pairwiseMatches[[i]]$match$multilocus)
-          )
-        ## Set flags that mismatch
-        pairwiseMatches[[i]]$match$flags[matrix(
-          pairwiseMatches[[i]]$focal$multilocus,
+        pairwiseMatches[[i]]$match$flags <- matrix(
+          1,
           nrow(pairwiseMatches[[i]]$match$multilocus),
-          ncol(pairwiseMatches[[i]]$match$multilocus),
-          byrow = TRUE
+          ncol(pairwiseMatches[[i]]$match$multilocus)
         )
-        != pairwiseMatches[[i]]$match$multilocus] <-
-          0
-        ## Set flags that are missing
-        pairwiseMatches[[i]]$match$flags[is.na(pairwiseMatches[[i]]$match$multilocus)] <-
-          2
-        pairwiseMatches[[i]]$match$flags[, which(pairwiseMatches[[i]]$focal$flags ==
-                                                   2)] <- 2
+        focal_vec <- as.vector(pairwiseMatches[[i]]$focal$multilocus)
+        mismatch_mask <- comparisonGenotypes[pairwiseMatchesWhich, , drop = FALSE] != focal_vec[col(comparisonGenotypes[pairwiseMatchesWhich, , drop = FALSE])]
+        pairwiseMatches[[i]]$match$flags[mismatch_mask] <- 0
+        pairwiseMatches[[i]]$match$flags[is.na(pairwiseMatches[[i]]$match$multilocus)] <- 2
+        pairwiseMatches[[i]]$match$flags[, which(pairwiseMatches[[i]]$focal$flags == 2)] <- 2
 
-        ## Summarize the matches
-        pairwiseMatches[[i]]$match$perfect <-
-          sum(pairwiseMatchesScores == 1)
-        pairwiseMatches[[i]]$match$partial <-
-          sum(pairwiseMatchesScores < 1)
+        pairwiseMatches[[i]]$match$perfect <- sum(pairwiseMatchesScores == 1)
+        pairwiseMatches[[i]]$match$partial <- sum(pairwiseMatchesScores < 1)
       }
 
-      ## Set column names on multilocus
-      dimnames(pairwiseMatches[[i]]$match$multilocus)[[2]] <-
-        columnNames
-
-      ## Return missing codes to multilocus
-      pairwiseMatches[[i]]$match$multilocus[is.na(pairwiseMatches[[i]]$match$multilocus)] <-
-        amDatasetFocal$missingCode
+      dimnames(pairwiseMatches[[i]]$match$multilocus)[[2]] <- columnNames
+      pairwiseMatches[[i]]$match$multilocus[is.na(pairwiseMatches[[i]]$match$multilocus)] <- amDatasetFocal$missingCode
     }
 
-    ## Add some meta-data to the amPairwise object
     amPairwise <- list()
     amPairwise$pairwise <- pairwiseMatches
     amPairwise$missingCode <- amDatasetFocal$missingCode
@@ -504,17 +395,11 @@ amPairwise <-
     amPairwise$alleleMismatch <- alleleMismatch
     amPairwise$missingMethod <- missingMethod
     amPairwise$focalDatasetN <- nrow(amDatasetFocal$multilocus)
-    amPairwise$comparisonDatasetN <-
-      nrow(amDatasetComparison$multilocus)
-    if (identical(dim(amDatasetFocal$multilocus),
-                  dim(amDatasetComparison$multilocus)) &&
-        (all(
-          amDatasetFocal$multilocus == amDatasetComparison$multilocus
-        ))) {
-      amPairwise$focalIsComparison <- TRUE
-    } else {
-      amPairwise$focalIsComparison <- FALSE
-    }
+    amPairwise$comparisonDatasetN <- nrow(amDatasetComparison$multilocus)
+    amPairwise$focalIsComparison <- identical(dim(amDatasetFocal$multilocus),
+                                              dim(amDatasetComparison$multilocus)) &&
+      all(amDatasetFocal$multilocus == amDatasetComparison$multilocus)
+
     class(amPairwise) <- "amPairwise"
     return(amPairwise)
   }
@@ -525,55 +410,53 @@ summary.amPairwise <- function(object,
                                html = NULL,
                                csv = NULL,
                                ...) {
-  if (!inherits(object, "amPairwise")) {
-    stop("allelematch:  this function requires an \"amPairwise\" object",
+  if (!inherits(object, "amPairwise"))
+    stop("allelematch: this function requires an \"amPairwise\" object",
          call. = FALSE)
-  }
 
   if (!is.null(html)) {
-    if (is.logical(html) && (html == TRUE))
+    if (is.logical(html) &&
+        (html == TRUE))
       amHTML.amPairwise(object)
-    else if (is.logical(html) && (html == FALSE))
+    else if (is.logical(html) &&
+             (html == FALSE))
       html <- NULL
     else
       amHTML.amPairwise(object, htmlFile = html)
   }
-  if (!is.null(csv)) {
+  if (!is.null(csv))
     amCSV.amPairwise(object, csvFile = csv)
-  }
+
   if (is.null(html) && is.null(csv)) {
-    cat("allelematch\npairwise analysis\n")
-    cat("\nfocal dataset N=", object$focalDatasetN, "\n", sep = "")
-    if (object$focalIsComparison)
-      cat("focal dataset compared against itself\n")
+    comparison_str <- if (object$focalIsComparison)
+      "focal dataset compared against itself\n"
     else
-      cat("comparison dataset N=",
-          object$comparisonDatasetN,
-          "\n",
-          sep = "")
-    cat("missing data represented by: ",
-        object$missingCode,
-        "\n",
-        sep = "")
-    cat("missing data matching method: ",
-        object$missingMethod,
-        "\n",
-        sep = "")
+      paste0("comparison dataset N=", object$comparisonDatasetN, "\n")
+
     cat(
+      "allelematch\npairwise analysis\n\n",
+      "focal dataset N=",
+      object$focalDatasetN,
+      "\n",
+      comparison_str,
+      "missing data represented by: ",
+      object$missingCode,
+      "\n",
+      "missing data matching method: ",
+      object$missingMethod,
+      "\n",
       "alleleMismatch (m-hat; maximum number of mismatching alleles): ",
       object$alleleMismatch,
       "\n",
-      sep = ""
-    )
-    cat(
       "matchThreshold (s-hat; lowest matching score returned): ",
       object$matchThreshold,
       "\n\n",
+      "score flags:\n",
+      "*101 allele does not match\n",
+      "+101 allele is missing\n\n",
       sep = ""
     )
-    cat("score flags:\n")
-    cat("*101 allele does not match\n")
-    cat("+101 allele is missing\n\n")
+
     y <- object$pairwise
     for (i in 1:length(y)) {
       cat("(", i, " of ", length(y), ")\n", sep = "")
@@ -586,24 +469,22 @@ summary.amPairwise <- function(object,
       showFocalFlags[y[[i]]$focal$flags == 2] <- "+"
       showFocalFlags[y[[i]]$focal$flags == 0] <- "*"
       showFocalFlags[y[[i]]$focal$flags == 1] <- ""
-      showFocal <-
-        matrix(
-          paste(showFocalFlags, y[[i]]$focal$multilocus, sep = ""),
-          nrow(showFocalFlags),
-          ncol(showFocalFlags)
-        )
+      showFocal <- matrix(
+        paste0(showFocalFlags, y[[i]]$focal$multilocus),
+        nrow(showFocalFlags),
+        ncol(showFocalFlags)
+      )
       dimnames(showFocal) <- dimnames(showFocalFlags)
 
       showMatchFlags <- y[[i]]$match$multilocus
       showMatchFlags[y[[i]]$match$flags == 2] <- "+"
       showMatchFlags[y[[i]]$match$flags == 0] <- "*"
       showMatchFlags[y[[i]]$match$flags == 1] <- ""
-      showMatch <-
-        matrix(
-          paste(showMatchFlags, y[[i]]$match$multilocus, sep = ""),
-          nrow(showMatchFlags),
-          ncol(showMatchFlags)
-        )
+      showMatch <- matrix(
+        paste0(showMatchFlags, y[[i]]$match$multilocus),
+        nrow(showMatchFlags),
+        ncol(showMatchFlags)
+      )
       dimnames(showMatch) <- dimnames(showMatchFlags)
 
       print(data.frame(
@@ -611,24 +492,21 @@ summary.amPairwise <- function(object,
           data.frame(showFocal, score = ""),
           data.frame(showMatch, score = y[[i]]$match$score)
         ),
-        row.names = paste(c("FOCAL  ", rep(
-          "MATCH  ", length(y[[i]]$match$index)
-        )),
-        format(c(
+        row.names = paste0(c("FOCAL ", rep(
+          "MATCH ", length(y[[i]]$match$index)
+        )), format(c(
           y[[i]]$focal$index, y[[i]]$match$index
-        )), "  ",
-        format(
+        )), " ", format(
           c(y[[i]]$focal$metaData, y[[i]]$match$metaData)
-        ), sep = "")
+        ))
       ))
       cat(
         y[[i]]$match$perfect,
-        " perfect matches found.  ",
+        " perfect matches found. ",
         y[[i]]$match$partial,
-        " partial matches found.\n",
+        " partial matches found.\n\n\n",
         sep = ""
       )
-      cat("\n\n")
     }
   }
 }
@@ -642,476 +520,287 @@ amCluster <-
            missingMethod = 2,
            consensusMethod = 1,
            clusterMethod = "complete") {
-    ## Check function call variables for validity
     if (!(class(amDatasetFocal) %in% c("amDataset", "amInterpolate", "amCluster"))) {
       stop(
-        "allelematch:  amDatasetFocal must be an object of class \"amDataset\" or for recursive use, class \"amCluster\"",
+        "allelematch: amDatasetFocal must be an object of class \"amDataset\" or for recursive use, class \"amCluster\"",
         call. = FALSE
       )
     }
-    if (inherits(amDatasetFocal, "amCluster")) {
+    if (inherits(amDatasetFocal, "amCluster"))
       amDatasetFocal <- amDatasetFocal$unique
-    }
 
     if (inherits(amDatasetFocal, "amInterpolate")) {
       reClass <- amDatasetFocal
-      amDatasetFocal <- list()
-      amDatasetFocal$index <- reClass$index
-      amDatasetFocal$metaData <- reClass$metaData
-      amDatasetFocal$multilocus <- reClass$multilocus
-      amDatasetFocal$missingCode <- reClass$missingCode
+      amDatasetFocal <- list(
+        index = reClass$index,
+        metaData = reClass$metaData,
+        multilocus = reClass$multilocus,
+        missingCode = reClass$missingCode
+      )
       class(amDatasetFocal) <- "amDataset"
     }
 
     originalFocalDatasetN <- nrow(amDatasetFocal$multilocus)
-
     if (!(missingMethod %in% c(1, 2)))
-      stop("allelematch:  missingMethod must equal 1 or 2", call. = FALSE)
+      stop("allelematch: missingMethod must equal 1 or 2", call. = FALSE)
     if (!(consensusMethod %in% c(1, 2, 3, 4)))
-      stop("allelematch:  consensusMethod must equal 1, 2, 3 or 4", call. = FALSE)
+      stop("allelematch: consensusMethod must equal 1, 2, 3 or 4", call. = FALSE)
     if (!(tolower(clusterMethod) %in% c("complete", "average", "single")))
-      stop("allelematch:  clusterMethod must be \"complete\" or \"average\"",
+      stop("allelematch: clusterMethod must be \"complete\" or \"average\"",
            call. = FALSE)
 
     totalRuns <- 0
-
     repeat {
       totalRuns <- totalRuns + 1
-
-      ## On recursive runs with extreme (and useless) datasets sometimes there will only be one unique individual
-      ## In this case the function will return the previous run, which will include clusters
       if (is.null(dim(amDatasetFocal$multilocus)))
         break
 
-      ## Produce dissimilarity matrix
-      dissimMatrix <-
-        amMatrix(amDatasetFocal, missingMethod = missingMethod)
+      dissimMatrix <- amMatrix(amDatasetFocal, missingMethod = missingMethod)
 
-      ## Do agglomerative hierarchical clustering
       tryCatch(
-        dendro <-
-          stats::hclust(stats::as.dist(dissimMatrix), method = clusterMethod),
+        dendro <- stats::hclust(stats::as.dist(dissimMatrix), method = clusterMethod),
         error = function(x)
           stop(
-            "allelematch:  error in clustering, try a different clusterMethod",
+            "allelematch: error in clustering, try a different clusterMethod",
             call. = FALSE
           )
       )
 
-      ## Do dynamic tree cutting, hybrid method
       tryCatch(
-        uniqueIndex <-
-          dynamicTreeCut::cutreeHybrid(
-            dendro,
-            dissimMatrix,
-            cutHeight = cutHeight,
-            minClusterSize = 1,
-            verbose = 0
-          )$labels + 1,
+        uniqueIndex <- dynamicTreeCut::cutreeHybrid(
+          dendro,
+          dissimMatrix,
+          cutHeight = cutHeight,
+          minClusterSize = 1,
+          verbose = 0
+        )$labels + 1,
         error = function(x)
           stop(
-            "allelematch:  error in dynamic tree cutting; several causes for this error; have you installed dynamicTreeCut package?  install.packages(\"dynamicTreeCut\")",
+            "allelematch: error in dynamic tree cutting; have you installed dynamicTreeCut?",
             call. = FALSE
           )
       )
       numLabels <- length(unique(uniqueIndex))
 
-      ## Build clusterAnalysis object where each $cluster$match are the clusters of genotypes
-      ## and $cluster$focal are the consensus genotypes for each cluster
       clusterAnalysis <- list()
-
-      ## Create data object to contain clusters (it will be a list of length(0) if there are non)
       clusterAnalysis$cluster <- vector("list", numLabels - 1)
-
-
 
       j <- 0
       for (i in 1:numLabels) {
-        thisGenotype <-
-          matrix(
-            amDatasetFocal$multilocus[uniqueIndex == i, ],
-            sum(uniqueIndex == i),
-            ncol(amDatasetFocal$multilocus),
-            byrow = FALSE
-          )
-        dimnames(thisGenotype) <-
-          list(NULL, dimnames(amDatasetFocal$multilocus)[[2]])
+        thisGenotype <- amDatasetFocal$multilocus[uniqueIndex == i, , drop = FALSE]
+        dimnames(thisGenotype) <- list(NULL, dimnames(amDatasetFocal$multilocus)[[2]])
         thisIndex <- amDatasetFocal$index[uniqueIndex == i]
         thisMetaData <- amDatasetFocal$metaData[uniqueIndex == i]
 
-        ## Produce a list of singletons (label=1) and determine their maximum similarity to any other
-        ## in the focalGenotype set.  These values should all be below 50% if the cutHeight was
-        ## chosen well.  Then create singletons paired with this next closest match.
         if ((i == 1) && (length(thisGenotype) > 1)) {
           modifiedDissimMatrix <- dissimMatrix
           diag(modifiedDissimMatrix) <- 1
 
-          maxScoreSingletons <-
-            apply(matrix(
-              1 - modifiedDissimMatrix[uniqueIndex == 1,],
-              sum(uniqueIndex == 1),
-              ncol(modifiedDissimMatrix),
-              byrow = FALSE
-            ),
-            1,
-            max)
-
-          maxScoreSingletonsWhich <-
-            apply(matrix(
-              1 - modifiedDissimMatrix[uniqueIndex == 1,],
-              sum(uniqueIndex == 1),
-              ncol(modifiedDissimMatrix),
-              byrow = FALSE
-            ),
-            1,
-            which.max)
-          clusterAnalysis$singletons <-
-            vector("list", sum(uniqueIndex == 1))
+          maxScoreSingletons <- apply(matrix(
+            1 - modifiedDissimMatrix[uniqueIndex == 1, ],
+            sum(uniqueIndex == 1),
+            ncol(modifiedDissimMatrix)
+          ), 1, max)
+          maxScoreSingletonsWhich <- apply(matrix(
+            1 - modifiedDissimMatrix[uniqueIndex == 1, ],
+            sum(uniqueIndex == 1),
+            ncol(modifiedDissimMatrix)
+          ),
+          1,
+          which.max)
+          clusterAnalysis$singletons <- vector("list", sum(uniqueIndex == 1))
 
           if (sum(uniqueIndex == 1) > 1) {
             reorderSingletons <- order(maxScoreSingletons, decreasing = TRUE)
-            maxScoreSingletons <-
-              maxScoreSingletons[reorderSingletons]
-            maxScoreSingletonsWhich <-
-              maxScoreSingletonsWhich[reorderSingletons]
-            thisGenotype <- thisGenotype[reorderSingletons,]
+            maxScoreSingletons <- maxScoreSingletons[reorderSingletons]
+            maxScoreSingletonsWhich <- maxScoreSingletonsWhich[reorderSingletons]
+            thisGenotype <- thisGenotype[reorderSingletons, ]
             thisIndex <- thisIndex[reorderSingletons]
             thisMetaData <- thisMetaData[reorderSingletons]
           }
 
           for (k in 1:sum(uniqueIndex == 1)) {
-            ## Singleton, focal genotype
-            clusterAnalysis$singletons[[k]]$focal$index <-
-              thisIndex[k]
-            clusterAnalysis$singletons[[k]]$focal$metaData <-
-              thisMetaData[k]
-            clusterAnalysis$singletons[[k]]$focal$multilocus <-
-              t(thisGenotype[k,])
-            ## Set all flags to matching
-            clusterAnalysis$singletons[[k]]$focal$flags <-
-              matrix(
-                1,
-                nrow(clusterAnalysis$singletons[[k]]$focal$multilocus),
-                ncol(clusterAnalysis$singletons[[k]]$focal$multilocus)
-              )
-            ## Set flags that are missing
-            clusterAnalysis$singletons[[k]]$focal$flags[t(
-              apply(clusterAnalysis$singletons[[k]]$focal$multilocus, 1, function(x)
-                x == amDatasetFocal$missingCode)
-            )] <- 2
+            clusterAnalysis$singletons[[k]]$focal$index <- thisIndex[k]
+            clusterAnalysis$singletons[[k]]$focal$metaData <- thisMetaData[k]
+            clusterAnalysis$singletons[[k]]$focal$multilocus <- t(thisGenotype[k, ])
+            clusterAnalysis$singletons[[k]]$focal$flags <- matrix(
+              1,
+              nrow(clusterAnalysis$singletons[[k]]$focal$multilocus),
+              ncol(clusterAnalysis$singletons[[k]]$focal$multilocus)
+            )
+            clusterAnalysis$singletons[[k]]$focal$flags[clusterAnalysis$singletons[[k]]$focal$multilocus == amDatasetFocal$missingCode] <- 2
 
-            ## Singleton, matching genotype
-            clusterAnalysis$singletons[[k]]$match$index <-
-              amDatasetFocal$index[maxScoreSingletonsWhich[k]]
-            clusterAnalysis$singletons[[k]]$match$metaData <-
-              amDatasetFocal$metaData[maxScoreSingletonsWhich[k]]
-            #browser()
-            clusterAnalysis$singletons[[k]]$match$multilocus <-
-              t(amDatasetFocal$multilocus[maxScoreSingletonsWhich[k],])
-            clusterAnalysis$singletons[[k]]$match$score <-
-              as.character(signif(maxScoreSingletons[k], 2))
-            ## Set all flags to matching
-            clusterAnalysis$singletons[[k]]$match$flags <-
-              matrix(
-                1,
-                nrow(clusterAnalysis$singletons[[k]]$match$multilocus),
-                ncol(clusterAnalysis$singletons[[k]]$match$multilocus)
-              )
-            ## Set flags that mismatch
+            clusterAnalysis$singletons[[k]]$match$index <- amDatasetFocal$index[maxScoreSingletonsWhich[k]]
+            clusterAnalysis$singletons[[k]]$match$metaData <- amDatasetFocal$metaData[maxScoreSingletonsWhich[k]]
+            clusterAnalysis$singletons[[k]]$match$multilocus <- t(amDatasetFocal$multilocus[maxScoreSingletonsWhich[k], ])
+            clusterAnalysis$singletons[[k]]$match$score <- as.character(signif(maxScoreSingletons[k], 2))
+            clusterAnalysis$singletons[[k]]$match$flags <- matrix(
+              1,
+              nrow(clusterAnalysis$singletons[[k]]$match$multilocus),
+              ncol(clusterAnalysis$singletons[[k]]$match$multilocus)
+            )
+
             clusterAnalysis$singletons[[k]]$match$flags[matrix(
               clusterAnalysis$singletons[[k]]$focal$multilocus,
               nrow(clusterAnalysis$singletons[[k]]$match$multilocus),
               ncol(clusterAnalysis$singletons[[k]]$match$multilocus),
               byrow = TRUE
-            )
-            != clusterAnalysis$singletons[[k]]$match$multilocus] <- 0
-            ## Set flags that are missing
-            clusterAnalysis$singletons[[k]]$match$flags[t(
-              apply(clusterAnalysis$singletons[[k]]$match$multilocus, 1, function(x)
-                x == amDatasetFocal$missingCode)
-            )] <- 2
-            clusterAnalysis$singletons[[k]]$match$flags[, which(clusterAnalysis$singletons[[k]]$focal$flags ==
-                                                                  2)] <- 2
+            ) != clusterAnalysis$singletons[[k]]$match$multilocus] <- 0
+            clusterAnalysis$singletons[[k]]$match$flags[clusterAnalysis$singletons[[k]]$match$multilocus == amDatasetFocal$missingCode] <- 2
+            clusterAnalysis$singletons[[k]]$match$flags[, which(clusterAnalysis$singletons[[k]]$focal$flags == 2)] <- 2
           }
-        ## No singletons
         } else if (i == 1) {
           clusterAnalysis$singletons <- list()
-        } else { ## Clusters of individuals
+        } else {
           j <- j + 1
+          score <- amMatrix(
+            amDataset(
+              cbind(1:nrow(thisGenotype), thisGenotype),
+              indexColumn = 1,
+              missingCode = amDatasetFocal$missingCode
+            ),
+            missingMethod = missingMethod
+          )
 
-          ## Recreate the dissimilarity matrix for simplicity so that only those dissimilarity
-          ## scores of for this matching genotype are there.  Assign false index labels so that
-          ## amMatrix does not use CPU time creating these unnecessarily.
-
-          score <-
-            amMatrix(
-              amDataset(
-                cbind(1:nrow(thisGenotype), thisGenotype),
-                indexColumn = 1,
-                missingCode = amDatasetFocal$missingCode
-              ),
-              missingMethod = missingMethod
-            )
-
-          ## consensusMethod=1
-          ## Find the genotype that has the highest similarity to other genotypes in the cluster and make it the consensus (focal)
-          if (consensusMethod == 1) {
+          if (consensusMethod %in% c(1, 2)) {
             lowerTriScore <- score
             lowerTriScore[upper.tri(score, diag = TRUE)] <- 0
             consensusIndex <- which.min(rowSums(lowerTriScore))
-            ## Clusters, focal genotype
-            clusterAnalysis$cluster[[j]]$focal$index <-
-              thisIndex[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$metaData <-
-              thisMetaData[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$multilocus <-
-              t(thisGenotype[consensusIndex, ])
-          }
+            clusterAnalysis$cluster[[j]]$focal$index <- thisIndex[consensusIndex]
+            clusterAnalysis$cluster[[j]]$focal$metaData <- thisMetaData[consensusIndex]
+            clusterAnalysis$cluster[[j]]$focal$multilocus <- t(thisGenotype[consensusIndex, ])
 
-          ## consensusMethod=2
-          ## Find the genotype that has the highest similarity to other genotypes in the cluster and make it the consensus (focal)
-          ## and fill in missing alleles with the mode non-missing allele in each column (not done locus-wise, but column-wise)
-          if (consensusMethod == 2) {
-            lowerTriScore <- score
-            lowerTriScore[upper.tri(score, diag = TRUE)] <- 0
-            consensusIndex <- which.min(rowSums(lowerTriScore))
-            ## Clusters, focal genotype
-            clusterAnalysis$cluster[[j]]$focal$index <-
-              thisIndex[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$metaData <-
-              thisMetaData[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$multilocus <-
-              t(thisGenotype[consensusIndex, ])
-
-            ## Do missing data interpolation for consensus genotype only if required
-            if (sum(
-              clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
-            ) > 0) {
-              ## Determine most frequent (mode) non-missing allele for all columns
+            if (consensusMethod == 2 &&
+                sum(
+                  clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
+                ) > 0) {
               modes <- apply(thisGenotype, 2, function(x) {
                 modeAllele <- attr(sort(table(x), decreasing = TRUE), "name")
-
-                if (length(modeAllele) > 1) {
-                  if ((modeAllele[1] == amDatasetFocal$missingCode) &&
-                      (modeAllele[2] != amDatasetFocal$missingCode)) {
-                    returnVal <- modeAllele[2]
-                  } else {
-                    returnVal <- modeAllele[1]
-                  }
-                } else {
-                  returnVal <- modeAllele[1]
-                }
-                return(returnVal)
+                if (length(modeAllele) > 1 &&
+                    modeAllele[1] == amDatasetFocal$missingCode)
+                  modeAllele[2]
+                else
+                  modeAllele[1]
               })
-
-              ## Reassign missing alleles only with most frequent value
-              reassignThese <-
-                clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
-              clusterAnalysis$cluster[[j]]$focal$multilocus[reassignThese] <-
-                modes[reassignThese]
-              interpolated <-
-                reassignThese &
+              reassignThese <- clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
+              clusterAnalysis$cluster[[j]]$focal$multilocus[reassignThese] <- modes[reassignThese]
+              interpolated <- reassignThese &
                 (modes != amDatasetFocal$missingCode)
             }
-
-          ## consensusMethod=3
-          ## Find the genotype that has the least amount of missing data and make it the consensus (focal)
-          } else if (consensusMethod == 3) {
-            ## Determine counts of missing alleles for all genotypes
-            missingAlleles <-
-              rowSums(thisGenotype == amDatasetFocal$missingCode)
+          } else if (consensusMethod %in% c(3, 4)) {
+            missingAlleles <- rowSums(thisGenotype == amDatasetFocal$missingCode)
             consensusIndex <- which.min(missingAlleles)
-            ## Clusters, focal genotype
-            clusterAnalysis$cluster[[j]]$focal$index <-
-              thisIndex[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$metaData <-
-              thisMetaData[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$multilocus <-
-              t(thisGenotype[consensusIndex, ])
+            clusterAnalysis$cluster[[j]]$focal$index <- thisIndex[consensusIndex]
+            clusterAnalysis$cluster[[j]]$focal$metaData <- thisMetaData[consensusIndex]
+            clusterAnalysis$cluster[[j]]$focal$multilocus <- t(thisGenotype[consensusIndex, ])
 
-          ## consensusMethod=4
-          ## Find the genotype with the least amount of missing data, and fill in missing alleles with
-          ## the mode non-missing allele in each column (not done locus-wise, but column-wise)
-          } else if (consensusMethod == 4) {
-            ## Determine counts of missing alleles for all genotypes
-            missingAlleles <-
-              rowSums(thisGenotype == amDatasetFocal$missingCode)
-            consensusIndex <- which.min(missingAlleles)
-            ## Clusters, focal genotype
-            clusterAnalysis$cluster[[j]]$focal$index <-
-              thisIndex[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$metaData <-
-              thisMetaData[consensusIndex]
-            clusterAnalysis$cluster[[j]]$focal$multilocus <-
-              t(thisGenotype[consensusIndex, ])
-
-            ## Do missing data interpolation for consensus genotype only if required
-            if (sum(
-              clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
-            ) > 0) {
-              ## Determine most frequent (mode) non-missing allele for all columns
+            if (consensusMethod == 4 &&
+                sum(
+                  clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
+                ) > 0) {
               modes <- apply(thisGenotype, 2, function(x) {
                 modeAllele <- attr(sort(table(x), decreasing = TRUE), "name")
-
-                if (length(modeAllele) > 1) {
-                  if ((modeAllele[1] == amDatasetFocal$missingCode) &&
-                      (modeAllele[2] != amDatasetFocal$missingCode)) {
-                    returnVal <- modeAllele[2]
-                  } else {
-                    returnVal <- modeAllele[1]
-                  }
-                } else {
-                  returnVal <- modeAllele[1]
-                }
-                return(returnVal)
+                if (length(modeAllele) > 1 &&
+                    modeAllele[1] == amDatasetFocal$missingCode)
+                  modeAllele[2]
+                else
+                  modeAllele[1]
               })
-
-              ## Reassign missing alleles only with most frequent value
-              reassignThese <-
-                clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
-              clusterAnalysis$cluster[[j]]$focal$multilocus[reassignThese] <-
-                modes[reassignThese]
-              interpolated <-
-                reassignThese &
+              reassignThese <- clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode
+              clusterAnalysis$cluster[[j]]$focal$multilocus[reassignThese] <- modes[reassignThese]
+              interpolated <- reassignThese &
                 (modes != amDatasetFocal$missingCode)
             }
           }
 
-          ## Set all focal flags to matching
-          clusterAnalysis$cluster[[j]]$focal$flags <-
-            matrix(
-              1,
-              nrow(clusterAnalysis$cluster[[j]]$focal$multilocus),
-              ncol(clusterAnalysis$cluster[[j]]$focal$multilocus)
-            )
-          ## Set all focal flags that are missing
-          clusterAnalysis$cluster[[j]]$focal$flags[t(
-            apply(clusterAnalysis$cluster[[j]]$focal$multilocus, 1, function(x)
-              x == amDatasetFocal$missingCode)
-          )] <- 2
-          ## Set all focal flags that are interpolated
+          clusterAnalysis$cluster[[j]]$focal$flags <- matrix(
+            1,
+            nrow(clusterAnalysis$cluster[[j]]$focal$multilocus),
+            ncol(clusterAnalysis$cluster[[j]]$focal$multilocus)
+          )
+          clusterAnalysis$cluster[[j]]$focal$flags[clusterAnalysis$cluster[[j]]$focal$multilocus == amDatasetFocal$missingCode] <- 2
           if (exists("interpolated"))
-            clusterAnalysis$cluster[[j]]$focal$flags[interpolated] <-
-            3
+            clusterAnalysis$cluster[[j]]$focal$flags[interpolated] <- 3
 
-          ## Clusters, matching genotypes
-          reorderMatch <-
-            order(1 - score[consensusIndex,], decreasing = TRUE)
-          clusterAnalysis$cluster[[j]]$match$index <-
-            thisIndex[reorderMatch]
-          clusterAnalysis$cluster[[j]]$match$metaData <-
-            thisMetaData[reorderMatch]
-          clusterAnalysis$cluster[[j]]$match$multilocus <-
-            thisGenotype[reorderMatch, ]
-          clusterAnalysis$cluster[[j]]$match$score <-
-            as.character(signif(1 - score[consensusIndex, ], 2)[reorderMatch])
-          ## Set all flags to matching
-          clusterAnalysis$cluster[[j]]$match$flags <-
-            matrix(
-              1,
-              nrow(clusterAnalysis$cluster[[j]]$match$multilocus),
-              ncol(clusterAnalysis$cluster[[j]]$match$multilocus)
-            )
-          ## Set flags that mismatch
+          reorderMatch <- order(1 - score[consensusIndex, ], decreasing = TRUE)
+          clusterAnalysis$cluster[[j]]$match$index <- thisIndex[reorderMatch]
+          clusterAnalysis$cluster[[j]]$match$metaData <- thisMetaData[reorderMatch]
+          clusterAnalysis$cluster[[j]]$match$multilocus <- thisGenotype[reorderMatch, ]
+          clusterAnalysis$cluster[[j]]$match$score <- as.character(signif(1 - score[consensusIndex, ], 2)[reorderMatch])
+
+          clusterAnalysis$cluster[[j]]$match$flags <- matrix(
+            1,
+            nrow(clusterAnalysis$cluster[[j]]$match$multilocus),
+            ncol(clusterAnalysis$cluster[[j]]$match$multilocus)
+          )
           clusterAnalysis$cluster[[j]]$match$flags[matrix(
             clusterAnalysis$cluster[[j]]$focal$multilocus,
             nrow(clusterAnalysis$cluster[[j]]$match$multilocus),
             ncol(clusterAnalysis$cluster[[j]]$match$multilocus),
             byrow = TRUE
           ) != clusterAnalysis$cluster[[j]]$match$multilocus] <- 0
-          ## Set flags that are missing
-          clusterAnalysis$cluster[[j]]$match$flags[t(
-            apply(clusterAnalysis$cluster[[j]]$match$multilocus, 1, function(x)
-              x == amDatasetFocal$missingCode)
-          )] <- 2
-          clusterAnalysis$cluster[[j]]$match$flags[, which(clusterAnalysis$cluster[[j]]$focal$flags ==
-                                                             2)] <-
-            2
+          clusterAnalysis$cluster[[j]]$match$flags[clusterAnalysis$cluster[[j]]$match$multilocus == amDatasetFocal$missingCode] <- 2
+          clusterAnalysis$cluster[[j]]$match$flags[, which(clusterAnalysis$cluster[[j]]$focal$flags == 2)] <- 2
 
-          ## Summarize the matches
-          clusterAnalysis$cluster[[j]]$match$perfect <-
-            sum(apply(clusterAnalysis$cluster[[j]]$match$flags, 1, function(x)
-              all(x == 1)))
-          clusterAnalysis$cluster[[j]]$match$partial <-
-            nrow(clusterAnalysis$cluster[[j]]$match$flags) - clusterAnalysis$cluster[[j]]$match$perfect
+          clusterAnalysis$cluster[[j]]$match$perfect <- sum(apply(clusterAnalysis$cluster[[j]]$match$flags, 1, function(x)
+            all(x == 1)))
+          clusterAnalysis$cluster[[j]]$match$partial <- nrow(clusterAnalysis$cluster[[j]]$match$flags) - clusterAnalysis$cluster[[j]]$match$perfect
         }
       }
 
-      ## Produce a summary of unique genotypes
-      ## No clusters
       if (length(clusterAnalysis$cluster) == 0) {
-        clusterAnalysis$unique$index <-
-          do.call(c,
-                  lapply(clusterAnalysis$singletons, function(x)
-                    x$focal$index))
-        clusterAnalysis$unique$metaData <-
-          do.call(c,
-                  lapply(clusterAnalysis$singletons, function(x)
-                    x$focal$metaData))
-        clusterAnalysis$unique$multilocus <-
-          do.call(rbind,
-                  lapply(clusterAnalysis$singletons, function(x)
-                    x$focal$multilocus))
-        clusterAnalysis$unique$uniqueType <-
-          rep("SINGLETON", length(clusterAnalysis$singletons))
-      ## No singletons
+        clusterAnalysis$unique$index <- do.call(c,
+                                                lapply(clusterAnalysis$singletons, function(x)
+                                                  x$focal$index))
+        clusterAnalysis$unique$metaData <- do.call(c,
+                                                   lapply(clusterAnalysis$singletons, function(x)
+                                                     x$focal$metaData))
+        clusterAnalysis$unique$multilocus <- do.call(rbind,
+                                                     lapply(clusterAnalysis$singletons, function(x)
+                                                       x$focal$multilocus))
+        clusterAnalysis$unique$uniqueType <- rep("SINGLETON", length(clusterAnalysis$singletons))
       } else if (length(clusterAnalysis$singletons) == 0) {
-        clusterAnalysis$unique$index <-
-          do.call(c,
-                  lapply(clusterAnalysis$cluster, function(x)
-                    x$focal$index))
-        clusterAnalysis$unique$metaData <-
-          do.call(c,
-                  lapply(clusterAnalysis$cluster, function(x)
-                    x$focal$metaData))
-        clusterAnalysis$unique$multilocus <-
-          do.call(rbind,
-                  lapply(clusterAnalysis$cluster, function(x)
-                    x$focal$multilocus))
-        clusterAnalysis$unique$uniqueType <-
-          rep("CONSENSUS", length(clusterAnalysis$cluster))
-      ## Singletons and clusters
+        clusterAnalysis$unique$index <- do.call(c,
+                                                lapply(clusterAnalysis$cluster, function(x)
+                                                  x$focal$index))
+        clusterAnalysis$unique$metaData <- do.call(c,
+                                                   lapply(clusterAnalysis$cluster, function(x)
+                                                     x$focal$metaData))
+        clusterAnalysis$unique$multilocus <- do.call(rbind,
+                                                     lapply(clusterAnalysis$cluster, function(x)
+                                                       x$focal$multilocus))
+        clusterAnalysis$unique$uniqueType <- rep("CONSENSUS", length(clusterAnalysis$cluster))
       } else {
-        clusterAnalysis$unique$index <-
-          c(do.call(
-            c,
-            lapply(clusterAnalysis$cluster, function(x)
-              x$focal$index)
-          ),
-          do.call(
-            c,
-            lapply(clusterAnalysis$singletons, function(x)
-              x$focal$index)
-          ))
-        clusterAnalysis$unique$metaData <-
-          c(do.call(
-            c,
-            lapply(clusterAnalysis$cluster, function(x)
-              x$focal$metaData)
-          ),
-          do.call(
-            c,
-            lapply(clusterAnalysis$singletons, function(x)
-              x$focal$metaData)
-          ))
-        clusterAnalysis$unique$multilocus <-
-          rbind(do.call(
-            rbind,
-            lapply(clusterAnalysis$cluster, function(x)
-              x$focal$multilocus)
-          ),
-          do.call(
-            rbind,
-            lapply(clusterAnalysis$singletons, function(x)
-              x$focal$multilocus)
-          ))
-        clusterAnalysis$unique$uniqueType <-
-          c(rep("CONSENSUS", length(clusterAnalysis$cluster)),
-            rep("SINGLETON", length(clusterAnalysis$singletons)))
+        clusterAnalysis$unique$index <- c(do.call(
+          c,
+          lapply(clusterAnalysis$cluster, function(x)
+            x$focal$index)
+        ), do.call(
+          c,
+          lapply(clusterAnalysis$singletons, function(x)
+            x$focal$index)
+        ))
+        clusterAnalysis$unique$metaData <- c(do.call(
+          c,
+          lapply(clusterAnalysis$cluster, function(x)
+            x$focal$metaData)
+        ), do.call(
+          c,
+          lapply(clusterAnalysis$singletons, function(x)
+            x$focal$metaData)
+        ))
+        clusterAnalysis$unique$multilocus <- rbind(do.call(
+          rbind,
+          lapply(clusterAnalysis$cluster, function(x)
+            x$focal$multilocus)
+        ), do.call(
+          rbind,
+          lapply(clusterAnalysis$singletons, function(x)
+            x$focal$multilocus)
+        ))
+        clusterAnalysis$unique$uniqueType <- c(rep("CONSENSUS", length(clusterAnalysis$cluster)), rep("SINGLETON", length(clusterAnalysis$singletons)))
       }
 
-      ## Sort by the index column
-      ## First check to see if first column should be sorted as a character or as a numeric value
       if (sum(is.na(suppressWarnings(
         as.numeric(clusterAnalysis$unique$index)
       ))) > 0) {
@@ -1119,16 +808,11 @@ amCluster <-
       } else {
         orderUnique <- order(as.numeric(clusterAnalysis$unique$index))
       }
-      clusterAnalysis$unique$index <-
-        clusterAnalysis$unique$index[orderUnique]
-      clusterAnalysis$unique$metaData <-
-        clusterAnalysis$unique$metaData[orderUnique]
-      clusterAnalysis$unique$multilocus <-
-        clusterAnalysis$unique$multilocus[orderUnique, ]
-      clusterAnalysis$unique$uniqueType <-
-        clusterAnalysis$unique$uniqueType[orderUnique]
-      clusterAnalysis$unique$missingCode <-
-        amDatasetFocal$missingCode
+      clusterAnalysis$unique$index <- clusterAnalysis$unique$index[orderUnique]
+      clusterAnalysis$unique$metaData <- clusterAnalysis$unique$metaData[orderUnique]
+      clusterAnalysis$unique$multilocus <- clusterAnalysis$unique$multilocus[orderUnique, ]
+      clusterAnalysis$unique$uniqueType <- clusterAnalysis$unique$uniqueType[orderUnique]
+      clusterAnalysis$unique$missingCode <- amDatasetFocal$missingCode
       class(clusterAnalysis$unique) <- "amDataset"
 
       clusterAnalysis$cutHeight <- cutHeight
@@ -1141,32 +825,23 @@ amCluster <-
       clusterAnalysis$runUntilSingletons <- runUntilSingletons
       class(clusterAnalysis) <- "amCluster"
 
-      if (runUntilSingletons) {
-        if (length(clusterAnalysis$cluster) == 0)
-          break
-        else
-          amDatasetFocal <- clusterAnalysis$unique
-      }
+      if (runUntilSingletons &&
+          length(clusterAnalysis$cluster) > 0)
+        amDatasetFocal <- clusterAnalysis$unique
       else
         break
     }
-    ## Check that the multilocus output is satisfactory
-    if (is.null(clusterAnalysis$unique$multilocus)) {
-      stop(
-        "allelematch:  amCluster:  no clusters formed.  Please set cutHeight lower and run again.",
-        call. = FALSE
-      )
-    }
+
+    if (is.null(clusterAnalysis$unique$multilocus))
+      stop("allelematch: amCluster: no clusters formed.", call. = FALSE)
     if (is.null(dim(clusterAnalysis$unique$multilocus))) {
-      tmpMultilocus <-
-        matrix(
-          clusterAnalysis$unique$multilocus,
-          1,
-          length(clusterAnalysis$unique$multilocus),
-          byrow = FALSE
-        )
-      dimnames(tmpMultilocus)[[2]] <-
-        names(clusterAnalysis$unique$multilocus)
+      tmpMultilocus <- matrix(
+        clusterAnalysis$unique$multilocus,
+        1,
+        length(clusterAnalysis$unique$multilocus),
+        byrow = FALSE
+      )
+      dimnames(tmpMultilocus)[[2]] <- names(clusterAnalysis$unique$multilocus)
       clusterAnalysis$unique$multilocus <- tmpMultilocus
     }
     return(clusterAnalysis)
@@ -1178,70 +853,66 @@ summary.amCluster <- function(object,
                               html = NULL,
                               csv = NULL,
                               ...) {
-  if (!inherits(object, "amCluster")) {
-    stop("allelematch:  this function requires an \"amCluster\" object",
+  if (!inherits(object, "amCluster"))
+    stop("allelematch: this function requires an \"amCluster\" object",
          call. = FALSE)
-  }
 
   if (!is.null(html)) {
-    if (is.logical(html) && (html == TRUE))
+    if (is.logical(html) &&
+        (html == TRUE))
       amHTML.amCluster(object)
-    else if (is.logical(html) && (html == FALSE))
+    else if (is.logical(html) &&
+             (html == FALSE))
       html <- NULL
     else
       amHTML.amCluster(object, htmlFile = html)
   }
-  if (!is.null(csv)) {
+  if (!is.null(csv))
     amCSV.amCluster(object, csvFile = csv)
-  }
+
   if (is.null(html) && is.null(csv)) {
-    cat("allelematch\namCluster object\n")
-    cat("\nFocal dataset N=", object$focalDatasetN, "\n", sep = "")
-    cat("Unique genotypes (total): ",
-        nrow(object$unique$multilocus),
-        "\n",
-        sep = "")
-    cat("Unique genotypes (by cluster consensus): ",
-        length(object$cluster),
-        "\n",
-        sep = "")
-    cat("Unique genotypes (singletons): ",
-        length(object$singletons),
-        "\n\n",
-        sep = "")
-    cat("Missing data represented by: ",
-        object$missingCode,
-        "\n",
-        sep = "")
-    cat("Missing data matching method: ",
-        object$missingMethod,
-        "\n",
-        sep = "")
-    cat("Clustered genotypes consensus method: ",
-        object$consensusMethod,
-        "\n",
-        sep = "")
-    cat("Hierarchical clustering method: ",
-        object$clusterMethod,
-        "\n",
-        sep = "")
-    cat("Dynamic tree cutting height (cutHeight): ",
-        object$cutHeight,
-        "\n\n",
-        sep = "")
-    cat("Run until only singletons: ",
-        object$runUntilSingletons,
-        "\n",
-        sep = "")
-    cat("Runs: ", object$totalRuns, "\n\n", sep = "")
-    cat("Score flags:\n")
-    cat("*101 Allele does not match\n")
-    cat("+101 Allele is missing\n")
     cat(
-      "[101] Allele is interpolated in consensus from non-missing cluster members (consensusMethod = 2, 4 only)\n\n"
+      "allelematch\namCluster object\n\n",
+      "Focal dataset N=",
+      object$focalDatasetN,
+      "\n",
+      "Unique genotypes (total): ",
+      nrow(object$unique$multilocus),
+      "\n",
+      "Unique genotypes (by cluster consensus): ",
+      length(object$cluster),
+      "\n",
+      "Unique genotypes (singletons): ",
+      length(object$singletons),
+      "\n\n",
+      "Missing data represented by: ",
+      object$missingCode,
+      "\n",
+      "Missing data matching method: ",
+      object$missingMethod,
+      "\n",
+      "Clustered genotypes consensus method: ",
+      object$consensusMethod,
+      "\n",
+      "Hierarchical clustering method: ",
+      object$clusterMethod,
+      "\n",
+      "Dynamic tree cutting height (cutHeight): ",
+      object$cutHeight,
+      "\n\n",
+      "Run until only singletons: ",
+      object$runUntilSingletons,
+      "\n",
+      "Runs: ",
+      object$totalRuns,
+      "\n\n",
+      "Score flags:\n",
+      "*101 Allele does not match\n",
+      "+101 Allele is missing\n",
+      "[101] Allele is interpolated in consensus from non-missing cluster members (consensusMethod = 2, 4 only)\n\n",
+      sep = ""
     )
 
-    ## Write clusters
     y <- object$cluster
     if (length(y) > 0) {
       for (i in 1:length(y)) {
@@ -1249,34 +920,30 @@ summary.amCluster <- function(object,
         if (is.null(y[[i]]$focal$metaData))
           y[[i]]$focal$metaData <- ""
         if (is.null(y[[i]]$match$metaData))
-          y[[i]]$match$metaData <-
-            rep("", length(y[[i]]$match$index))
+          y[[i]]$match$metaData <- rep("", length(y[[i]]$match$index))
 
         showFocalFlags <- y[[i]]$focal$multilocus
         showFocalFlags[y[[i]]$focal$flags == 2] <- "+"
         showFocalFlags[y[[i]]$focal$flags == 0] <- "*"
         showFocalFlags[y[[i]]$focal$flags == 1] <- ""
         showFocalFlags[y[[i]]$focal$flags == 3] <- "["
-        showFocal <-
-          matrix(
-            paste(showFocalFlags, y[[i]]$focal$multilocus, sep = ""),
-            nrow(showFocalFlags),
-            ncol(showFocalFlags)
-          )
-        showFocal[, grepl("\\[", showFocal)] <-
-          paste(showFocal[, grepl("\\[", showFocal)], "]", sep = "")
+        showFocal <- matrix(
+          paste0(showFocalFlags, y[[i]]$focal$multilocus),
+          nrow(showFocalFlags),
+          ncol(showFocalFlags)
+        )
+        showFocal[, grepl("\\[", showFocal)] <- paste0(showFocal[, grepl("\\[", showFocal)], "]")
         dimnames(showFocal) <- dimnames(showFocalFlags)
 
         showMatchFlags <- y[[i]]$match$multilocus
         showMatchFlags[y[[i]]$match$flags == 2] <- "+"
         showMatchFlags[y[[i]]$match$flags == 0] <- "*"
         showMatchFlags[y[[i]]$match$flags == 1] <- ""
-        showMatch <-
-          matrix(
-            paste(showMatchFlags, y[[i]]$match$multilocus, sep = ""),
-            nrow(showMatchFlags),
-            ncol(showMatchFlags)
-          )
+        showMatch <- matrix(
+          paste0(showMatchFlags, y[[i]]$match$multilocus),
+          nrow(showMatchFlags),
+          ncol(showMatchFlags)
+        )
         dimnames(showMatch) <- dimnames(showMatchFlags)
 
         print(data.frame(
@@ -1284,29 +951,25 @@ summary.amCluster <- function(object,
             data.frame(showFocal, score = ""),
             data.frame(showMatch, score = y[[i]]$match$score)
           ),
-          row.names = paste(c(
-            "CONSENSUS  ", rep("MEMBER     ", length(y[[i]]$match$index))
-          ),
-          format(
+          row.names = paste0(c(
+            "CONSENSUS ", rep("MEMBER    ", length(y[[i]]$match$index))
+          ), format(
             c(y[[i]]$focal$index, y[[i]]$match$index)
-          ), "  ",
-          format(
+          ), " ", format(
             c(y[[i]]$focal$metaData, y[[i]]$match$metaData)
-          ), sep = "")
+          ))
         ))
         cat(
           y[[i]]$match$perfect,
-          " perfect matches found.  ",
+          " perfect matches found. ",
           y[[i]]$match$partial,
-          " partial matches found.\n",
+          " partial matches found.\n\n\n",
           sep = ""
         )
-        cat("\n\n")
       }
       cat("(Clusters END)\n\n\n")
     }
 
-    ## Write singletons
     y <- object$singletons
     if (length(y) > 0) {
       for (i in 1:length(y)) {
@@ -1314,31 +977,28 @@ summary.amCluster <- function(object,
         if (is.null(y[[i]]$focal$metaData))
           y[[i]]$focal$metaData <- ""
         if (is.null(y[[i]]$match$metaData))
-          y[[i]]$match$metaData <-
-            rep("", length(y[[i]]$match$index))
+          y[[i]]$match$metaData <- rep("", length(y[[i]]$match$index))
 
         showFocalFlags <- y[[i]]$focal$multilocus
         showFocalFlags[y[[i]]$focal$flags == 2] <- "+"
         showFocalFlags[y[[i]]$focal$flags == 0] <- "*"
         showFocalFlags[y[[i]]$focal$flags == 1] <- ""
-        showFocal <-
-          matrix(
-            paste(showFocalFlags, y[[i]]$focal$multilocus, sep = ""),
-            nrow(showFocalFlags),
-            ncol(showFocalFlags)
-          )
+        showFocal <- matrix(
+          paste0(showFocalFlags, y[[i]]$focal$multilocus),
+          nrow(showFocalFlags),
+          ncol(showFocalFlags)
+        )
         dimnames(showFocal) <- dimnames(showFocalFlags)
 
         showMatchFlags <- y[[i]]$match$multilocus
         showMatchFlags[y[[i]]$match$flags == 2] <- "+"
         showMatchFlags[y[[i]]$match$flags == 0] <- "*"
         showMatchFlags[y[[i]]$match$flags == 1] <- ""
-        showMatch <-
-          matrix(
-            paste(showMatchFlags, y[[i]]$match$multilocus, sep = ""),
-            nrow(showMatchFlags),
-            ncol(showMatchFlags)
-          )
+        showMatch <- matrix(
+          paste0(showMatchFlags, y[[i]]$match$multilocus),
+          nrow(showMatchFlags),
+          ncol(showMatchFlags)
+        )
         dimnames(showMatch) <- dimnames(showMatchFlags)
 
         print(data.frame(
@@ -1346,109 +1006,78 @@ summary.amCluster <- function(object,
             data.frame(showFocal, score = ""),
             data.frame(showMatch, score = y[[i]]$match$score)
           ),
-          row.names = paste(c(
-            "SINGLETON  ", rep("CLOSEST    ", length(y[[i]]$match$index))
-          ),
-          format(
+          row.names = paste0(c(
+            "SINGLETON ", rep("CLOSEST   ", length(y[[i]]$match$index))
+          ), format(
             c(y[[i]]$focal$index, y[[i]]$match$index)
-          ), "  ",
-          format(
+          ), " ", format(
             c(y[[i]]$focal$metaData, y[[i]]$match$metaData)
-          ), sep = "")
+          ))
         ))
         cat("\n\n")
       }
       cat("(Singletons END)\n\n\n")
     }
 
-    ## Write unique
     y <- object$unique
     cat("(Unique genotypes)\n")
     if (is.null(y$metaData))
       y$metaData <- ""
     print(data.frame(
       y$multilocus,
-      row.names = paste(
-        y$uniqueType,
-        "  ",
-        format(y$index),
-        "  ",
-        format(y$metaData),
-        sep = ""
-      )
+      row.names = paste0(y$uniqueType, " ", format(y$index), " ", format(y$metaData))
     ))
   }
-
 }
 
 
 #### amAlleleFreq() ####
 amAlleleFreq <- function(amDatasetFocal, multilocusMap = NULL) {
-  if (!inherits(amDatasetFocal, "amDataset")) {
-    stop("allelematch:  amDatasetFocal must be an object of class \"amDataset\"",
+  if (!inherits(amDatasetFocal, "amDataset"))
+    stop("allelematch: amDatasetFocal must be an object of class \"amDataset\"",
          call. = FALSE)
-  }
 
-  ## Set multilocusMap to default if not given
   if (is.null(multilocusMap)) {
     if ((ncol(amDatasetFocal$multilocus) %% 2) != 0) {
       stop(
-        "allelematch:  there are an odd number of genotype columns in amDatasetFocal; Please specify multilocusMap manually",
+        "allelematch: there are an odd number of genotype columns in amDatasetFocal; Please specify multilocusMap manually",
         call. = FALSE
       )
     } else {
       cat(
-        "allelematch:  assuming genotype columns are in pairs, representing",
+        "allelematch: assuming genotype columns are in pairs, representing ",
         ncol(amDatasetFocal$multilocus) / 2,
-        "loci\n"
+        " loci\n",
+        sep = ""
       )
     }
-    multilocusMap <-
-      rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
-  ## Check multilocusMap is the correct length
-  } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus))  {
-    stop(
-      "allelematch:  multilocusMap must be a vector of integers or strings giving the mappings onto loci for all genotype columns in amDatasetFocal;
-             Example: gender followed by 4 diploid loci in paired columns could be coded: mutlilocusMap=c(1,2,2,3,3,4,4,5,5)
-             or as: multilocusMap=c(\"GENDER\",\"LOC1\",\"LOC1\",\"LOC2\",\"LOC2\",\"LOC3\",\"LOC3\",\"LOC4\",\"LOC4\")",
-      call. = FALSE
-    )
+    multilocusMap <- rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
+  } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus)) {
+    stop("allelematch: multilocusMap length mismatch.", call. = FALSE)
   } else if (sum(table(multilocusMap) > 2) > 0) {
     stop(
-      "allelematch:  multilocusMap indicates that a locus occurs in three or more columns;  this situation is not yet handled",
+      "allelematch: multilocusMap indicates a locus occurs in three or more columns; unhandled.",
       call. = FALSE
     )
   }
   multilocusMap <- as.integer(as.factor(multilocusMap))
 
-  alleleFreq <- list()
-  alleleFreq$multilocusMap <- multilocusMap
-  alleleFreq$loci <- vector("list", max(multilocusMap))
-  ## Determine allele frequencies for each locus
+  alleleFreq <- list(multilocusMap = multilocusMap, loci = vector("list", max(multilocusMap)))
+
   for (locus in 1:max(multilocusMap)) {
     thisLocusIndex <- which(multilocusMap == locus)
-    alleleFreq$loci[[locus]]$name <-
-      paste(dimnames(amDatasetFocal$multilocus)[[2]][thisLocusIndex], collapse =
-              "-")
-    alleleFreq$loci[[locus]]$columnNames <-
-      dimnames(amDatasetFocal$multilocus)[[2]][thisLocusIndex]
-    thisLocus <-
-      as.character(amDatasetFocal$multilocus[, thisLocusIndex])
+    alleleFreq$loci[[locus]]$name <- paste(dimnames(amDatasetFocal$multilocus)[[2]][thisLocusIndex], collapse = "-")
+    alleleFreq$loci[[locus]]$columnNames <- dimnames(amDatasetFocal$multilocus)[[2]][thisLocusIndex]
+    thisLocus <- as.character(amDatasetFocal$multilocus[, thisLocusIndex])
     thisLocus[thisLocus == amDatasetFocal$missingCode] <- NA
-    thisLocusUnique <-
-      unique(thisLocus)[!is.na(unique(thisLocus))]
-    alleleFreq$loci[[locus]]$alleleFreq <-
-      sort(sapply(thisLocusUnique, function(x)
-        sum(thisLocus == x, na.rm = TRUE) / length(thisLocus[!is.na(thisLocus)])),
-        decreasing = TRUE)
-    alleleFreq$loci[[locus]]$missingFreq <-
-      sum(is.na(thisLocus)) / length(thisLocus)
-    alleleFreq$loci[[locus]]$numAlleles <-
-      length(thisLocusUnique)
-    #alleleFreq$loci[[locus]]$PIC <- 1 - sum(alleleFreq$loci[[locus]]$alleleFreq^2) - sum(apply(t(combn(1:length(alleleFreq$loci[[locus]]$alleleFreq), 2)), 1, function(x) prod(alleleFreq$loci[[locus]]$alleleFreq[x]^2)))
+    thisLocusUnique <- unique(thisLocus)[!is.na(unique(thisLocus))]
+    alleleFreq$loci[[locus]]$alleleFreq <- sort(sapply(thisLocusUnique, function(x)
+      sum(thisLocus == x, na.rm = TRUE) / length(thisLocus[!is.na(thisLocus)])),
+      decreasing = TRUE)
+    alleleFreq$loci[[locus]]$missingFreq <- sum(is.na(thisLocus)) / length(thisLocus)
+    alleleFreq$loci[[locus]]$numAlleles <- length(thisLocusUnique)
   }
   class(alleleFreq) <- "amAlleleFreq"
-
   return(alleleFreq)
 }
 
@@ -1460,18 +1089,16 @@ print.amAlleleFreq <- function(x, ...) {
   )
   y <- x$loci
   for (i in 1:length(y)) {
-    cat("\n",
-        locus = y[[i]]$name,
-        " (",
-        y[[i]]$numAlleles,
-        " alleles)\n",
-        sep = "")
+    cat("\n", y[[i]]$name, " (", y[[i]]$numAlleles, " alleles)\n", sep = "")
     for (j in 1:length(y[[i]]$alleleFreq)) {
-      cat("\tAllele\t",
-          names(y[[i]]$alleleFreq)[j],
-          "\t",
-          signif(y[[i]]$alleleFreq[j], 3),
-          "\n")
+      cat(
+        "\tAllele\t",
+        names(y[[i]]$alleleFreq)[j],
+        "\t",
+        signif(y[[i]]$alleleFreq[j], 3),
+        "\n",
+        sep = ""
+      )
     }
   }
 }
@@ -1487,292 +1114,211 @@ amUnique <-
            doPsib = "missing",
            consensusMethod = 1,
            verbose = TRUE) {
-    if (!inherits(amDatasetFocal, "amDataset")) {
-      stop("allelematch:  amDatasetFocal must be an object of class \"amDataset\"",
+    if (!inherits(amDatasetFocal, "amDataset"))
+      stop("allelematch: amDatasetFocal must be an object of class \"amDataset\"",
            call. = FALSE)
-    }
 
-    # Set multilocusMap to default if not given
     if (is.null(multilocusMap)) {
       if ((ncol(amDatasetFocal$multilocus) %% 2) != 0) {
         stop(
-          "allelematch:  there are an odd number of genotype columns in amDatasetFocal; Please specify multilocusMap manually",
+          "allelematch: there are an odd number of genotype columns in amDatasetFocal; Please specify multilocusMap manually",
           call. = FALSE
         )
-      }
-      else
+      } else if (verbose) {
         cat(
-          "allelematch:  assuming genotype columns are in pairs, representing",
+          "allelematch: assuming genotype columns are in pairs, representing ",
           ncol(amDatasetFocal$multilocus) / 2,
-          "loci\n"
+          " loci\n",
+          sep = ""
         )
-      multilocusMap <-
-        rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
-    ## Check multilocusMap is the correct length
-    } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus))  {
-      stop(
-        "allelematch:  multilocusMap must be a vector of integers or strings giving the mappings onto loci for all genotype columns in amDatasetFocal;
-             Example: gender followed by 4 diploid loci in paired columns could be coded: mutlilocusMap=c(1,2,2,3,3,4,4,5,5)
-             or as: multilocusMap=c(\"GENDER\",\"LOC1\",\"LOC1\",\"LOC2\",\"LOC2\",\"LOC3\",\"LOC3\",\"LOC4\",\"LOC4\")",
-        call. = FALSE
-      )
+      }
+      multilocusMap <- rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
+    } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus)) {
+      stop("allelematch: multilocusMap length mismatch.", call. = FALSE)
     } else if (sum(table(multilocusMap) > 2) > 0) {
       stop(
-        "allelematch:  multilocusMap indicates that a locus occurs in three or more columns;  this situation is not yet handled",
+        "allelematch: multilocusMap indicates that a locus occurs in three or more columns.",
         call. = FALSE
       )
     }
     multilocusMap <- as.integer(as.factor(multilocusMap))
 
-    ## More checking of input parameters
     if (sum(!(c(
       is.null(alleleMismatch),
       is.null(matchThreshold),
       is.null(cutHeight)
-    ))) != 1) {
+    ))) != 1)
+      stop("allelematch: please specify alleleMismatch OR matchThreshold OR cutHeight.",
+           call. = FALSE)
+    if (length(c(alleleMismatch, matchThreshold, cutHeight)) > 1)
       stop(
-        "allelematch:  please specify alleleMismatch OR matchThreshold OR cutHeight.",
+        "allelematch: please provide a single parameter value for alleleMismatch OR matchThreshold OR cutHeight.",
         call. = FALSE
       )
-    }
-
-    if (length(c(alleleMismatch, matchThreshold, cutHeight)) > 1) {
-      stop(
-        "allelematch:  please provide a single parameter value for alleleMismatch OR matchThreshold OR cutHeight.  Use amUniqueProfile() to examine a range of values",
-        call. = FALSE
-      )
-    }
 
     if (!is.null(matchThreshold)) {
-      if ((matchThreshold < 0) || (matchThreshold > 1)) {
-        stop("allelematch:  matchThreshold must be between 0 and 1",
-             call. = FALSE)
-      }
+      if ((matchThreshold < 0) ||
+          (matchThreshold > 1))
+        stop("allelematch: matchThreshold must be between 0 and 1", call. = FALSE)
       cutHeight <- 1 - matchThreshold
-      alleleMismatch <-
-        round((1 - matchThreshold) * length(multilocusMap), 2)
+      alleleMismatch <- round((1 - matchThreshold) * length(multilocusMap), 2)
     } else if (!is.null(alleleMismatch)) {
       matchThreshold <- 1 - (alleleMismatch / length(multilocusMap))
       cutHeight <- 1 - matchThreshold
     } else if (!is.null(cutHeight)) {
-      if ((cutHeight < 0) || (cutHeight > 1)) {
-        stop("allelematch:  cutHeight must be greater than 0 and less than 1",
+      if ((cutHeight < 0) ||
+          (cutHeight > 1))
+        stop("allelematch: cutHeight must be greater than 0 and less than 1",
              call. = FALSE)
-      }
       matchThreshold <- 1 - cutHeight
-      alleleMismatch <-
-        round((1 - matchThreshold) * length(multilocusMap), 2)
+      alleleMismatch <- round((1 - matchThreshold) * length(multilocusMap), 2)
     }
 
     if (matchThreshold == 1 && cutHeight == 0) {
       if (verbose)
         cat(
-          "allelematch: cutHeight cannot be zero.  Setting cutHeight=0.00001.  This will return perfect matches.\n"
+          "allelematch: cutHeight cannot be zero. Setting cutHeight=0.00001. This will return perfect matches.\n"
         )
       cutHeight <- 0.00001
     }
 
-    ## Run the required analyses
     if (verbose)
-      cat("allelematch:  amUnique:  Clustering genotypes\n")
-    clusterAnalysis <-
-      amCluster(
-        amDatasetFocal,
-        cutHeight = cutHeight,
-        runUntilSingletons = TRUE,
-        consensusMethod = consensusMethod
-      )
+      cat("allelematch: amUnique: Clustering genotypes\n")
+    clusterAnalysis <- amCluster(
+      amDatasetFocal,
+      cutHeight = cutHeight,
+      runUntilSingletons = TRUE,
+      consensusMethod = consensusMethod
+    )
 
     if (verbose)
       cat(
-        "allelematch:  amUnique:  Comparing unique genotypes identified by clustering to all samples\n"
+        "allelematch: amUnique: Comparing unique genotypes identified by clustering to all samples\n"
       )
-    clusterAnalysisPairwise <-
-      amPairwise(clusterAnalysis$unique, amDatasetFocal, matchThreshold = matchThreshold)
+    clusterAnalysisPairwise <- amPairwise(clusterAnalysis$unique, amDatasetFocal, matchThreshold = matchThreshold)
 
     if (verbose)
       cat(
-        "allelematch:  amUnique:  Determining allele frequencies of unique genotypes identified by cluster\n"
+        "allelematch: amUnique: Determining allele frequencies of unique genotypes identified by cluster\n"
       )
-    clusterAnalysisAlleleFreq <-
-      amAlleleFreq(clusterAnalysis$unique, multilocusMap = multilocusMap)
+    clusterAnalysisAlleleFreq <- amAlleleFreq(clusterAnalysis$unique, multilocusMap = multilocusMap)
 
     if (verbose)
-      cat("allelematch:  amUnique:  Finding Psib\n")
-    ## Prepare an output object of class amUnique
+      cat("allelematch: amUnique: Finding Psib\n")
     uniqueAnalysis <- clusterAnalysisPairwise
     class(uniqueAnalysis) <- "amUnique"
     for (i in 1:length(uniqueAnalysis$pairwise)) {
-      uniqueAnalysis$pairwise[[i]]$match$psib <-
-        rep(NA, nrow(uniqueAnalysis$pairwise[[i]]$match$multilocus))
-      uniqueAnalysis$pairwise[[i]]$match$rowFlag <-
-        rep("", nrow(uniqueAnalysis$pairwise[[i]]$match$multilocus))
+      uniqueAnalysis$pairwise[[i]]$match$psib <- rep(NA, nrow(uniqueAnalysis$pairwise[[i]]$match$multilocus))
+      uniqueAnalysis$pairwise[[i]]$match$rowFlag <- rep("", nrow(uniqueAnalysis$pairwise[[i]]$match$multilocus))
     }
 
-    ## Find Psib
     multilocusMap <- clusterAnalysisAlleleFreq$multilocusMap
-    ## Loop over all pairwise comparison sets
     for (iPairwise in 1:length(uniqueAnalysis$pairwise)) {
       thisPairwise <- uniqueAnalysis$pairwise[[iPairwise]]
-      ## Find all the genotype rows that have no mismatches if doPsib=="missing"
-      if (doPsib != "all") {
-        doTheseGenotypes <- rowSums(thisPairwise$match$flags == 0) == 0
-      ## Or if doPsib=="all" return all genotype rows
-      } else {
-        doTheseGenotypes <- rep(TRUE, nrow(thisPairwise$match$flags))
-      }
+      doTheseGenotypes <- if (doPsib != "all")
+        rowSums(thisPairwise$match$flags == 0) == 0
+      else
+        rep(TRUE, nrow(thisPairwise$match$flags))
 
       if (sum(doTheseGenotypes) > 0) {
         for (iGenotype in which(doTheseGenotypes)) {
           thisGenotype <- thisPairwise$match$multilocus[iGenotype, ]
           psib <- 1
-          ## Loop over all loci for this multilocus genotype
           for (iLocus in 1:max(multilocusMap)) {
             thisLocus <- thisGenotype[which(multilocusMap == iLocus)]
-            ## Continue if this locus is not missing or mismatched in match or in focal (i.e. flags are 1)
-            if (all(thisPairwise$match$flags[iGenotype, which(multilocusMap ==
-                                                              iLocus)] == 1)) {
-              ## Single column locus (e.g. gender)
+            if (all(thisPairwise$match$flags[iGenotype, which(multilocusMap == iLocus)] == 1)) {
               if (length(thisLocus) == 1) {
                 alleleA <- thisLocus
-                pA <-
-                  clusterAnalysisAlleleFreq$loci[[iLocus]]$alleleFreq[alleleA]
-                psib <-
-                  psib * (1 + (2 * pA) + (pA * pA)) / 4
-              ## Two column locus
+                pA <- clusterAnalysisAlleleFreq$loci[[iLocus]]$alleleFreq[alleleA]
+                psib <- psib * (1 + (2 * pA) + (pA * pA)) / 4
               } else {
                 alleleA <- thisLocus[1]
                 alleleB <- thisLocus[2]
-                ## Homozygote case
                 if (alleleA == alleleB) {
                   pA <- clusterAnalysisAlleleFreq$loci[[iLocus]]$alleleFreq[alleleA]
-                  psib <-
-                    psib * (1 + (2 * pA) + (pA * pA)) / 4
-                ## Heterozygote case
+                  psib <- psib * (1 + (2 * pA) + (pA * pA)) / 4
                 } else {
                   pA <- clusterAnalysisAlleleFreq$loci[[iLocus]]$alleleFreq[alleleA]
-                  pB <-
-                    clusterAnalysisAlleleFreq$loci[[iLocus]]$alleleFreq[alleleB]
-                  psib <-
-                    psib * (1 + pA + pB + (2 * pA * pB)) / 4
+                  pB <- clusterAnalysisAlleleFreq$loci[[iLocus]]$alleleFreq[alleleB]
+                  psib <- psib * (1 + pA + pB + (2 * pA * pB)) / 4
                 }
               }
             }
-            # cat("iPairwise=", iPairwise, " iGenotype=", iGenotype, " iLocus=", iLocus, " psib=", psib, "\n", sep="")
           }
-          ## Save the psib we calculated only if focal and match sample index are not the same
-          #if (uniqueAnalysis$pairwise[[iPairwise]]$focal$index != uniqueAnalysis$pairwise[[iPairwise]]$match$index[iGenotype]) {
-          #    uniqueAnalysis$pairwise[[iPairwise]]$match$psib[iGenotype] <- psib
-          #}
-
-          ## Save the psib we calculated
-          uniqueAnalysis$pairwise[[iPairwise]]$match$psib[iGenotype] <-
-            psib
-
-          uniqueAnalysis$pairwise[[iPairwise]]$match$psibNotCalculable <-
-            sum(!doTheseGenotypes)
+          uniqueAnalysis$pairwise[[iPairwise]]$match$psib[iGenotype] <- psib
+          uniqueAnalysis$pairwise[[iPairwise]]$match$psibNotCalculable <- sum(!doTheseGenotypes)
         }
       }
     }
 
-    ## Identify samples that do not appear either as focal or in pairwise matches at this matchThreshold
-    indexUnclassified <-
-      amDatasetFocal$index[!(amDatasetFocal$index %in% unique(do.call(
-        c, lapply(clusterAnalysisPairwise$pairwise, function(x)
-          c(x$focal$index, x$match$index))
-      )))]
+    indexUnclassified <- amDatasetFocal$index[!(amDatasetFocal$index %in% unique(do.call(
+      c, lapply(clusterAnalysisPairwise$pairwise, function(x)
+        c(x$focal$index, x$match$index))
+    )))]
     uniqueAnalysis$numUnclassified <- length(indexUnclassified)
-    ## If there are any samples not matched, add a section to the output object of
-    ## class amDataset containing only these not matched or "missing" rows
+
     if (uniqueAnalysis$numUnclassified > 0) {
       uniqueAnalysis$unclassified <- amDatasetFocal
-      unclassifiedDatasetFocal <-
-        which(amDatasetFocal$index %in% indexUnclassified)
-      uniqueAnalysis$unclassified$index <-
-        uniqueAnalysis$unclassified$index[unclassifiedDatasetFocal]
+      unclassifiedDatasetFocal <- which(amDatasetFocal$index %in% indexUnclassified)
+      uniqueAnalysis$unclassified$index <- uniqueAnalysis$unclassified$index[unclassifiedDatasetFocal]
       if (!is.null(uniqueAnalysis$unclassified$metaData)) {
-        uniqueAnalysis$unclassified$metaData <-
-          uniqueAnalysis$unclassified$metaData[unclassifiedDatasetFocal]
+        uniqueAnalysis$unclassified$metaData <- uniqueAnalysis$unclassified$metaData[unclassifiedDatasetFocal]
       }
-      tmpMultilocus <-
-        matrix(
-          uniqueAnalysis$unclassified$multilocus[unclassifiedDatasetFocal, ],
-          length(indexUnclassified),
-          ncol(uniqueAnalysis$unclassified$multilocus),
-          byrow = FALSE
-        )
-      dimnames(tmpMultilocus)[[2]] <-
-        dimnames(uniqueAnalysis$unclassified$multilocus)[[2]]
+      tmpMultilocus <- matrix(
+        uniqueAnalysis$unclassified$multilocus[unclassifiedDatasetFocal, ],
+        length(indexUnclassified),
+        ncol(uniqueAnalysis$unclassified$multilocus),
+        byrow = FALSE
+      )
+      dimnames(tmpMultilocus)[[2]] <- dimnames(uniqueAnalysis$unclassified$multilocus)[[2]]
       uniqueAnalysis$unclassified$multilocus <- tmpMultilocus
     }
 
-    ## Identify samples that appear in more than one pairwise match
-    ## by placing a flag indicating this in the rowFlag column
-    ## and create an amDataset object to contain these for external use
-    indexMatches <-
-      do.call(c,
-              lapply(clusterAnalysisPairwise$pairwise, function(x)
-                x$match$index))
-    indexMultipleMatches <-
-      unique(indexMatches[duplicated(indexMatches)])
-    uniqueAnalysis$numMultipleMatches <-
-      length(indexMultipleMatches)
+    indexMatches <- do.call(c,
+                            lapply(clusterAnalysisPairwise$pairwise, function(x)
+                              x$match$index))
+    indexMultipleMatches <- unique(indexMatches[duplicated(indexMatches)])
+    uniqueAnalysis$numMultipleMatches <- length(indexMultipleMatches)
+
     for (i in 1:length(uniqueAnalysis$pairwise)) {
-      theseMultipleMatches <-
-        which(uniqueAnalysis$pairwise[[i]]$match$index %in% indexMultipleMatches)
-      if (length(theseMultipleMatches != 0)) {
-        uniqueAnalysis$pairwise[[i]]$match$rowFlag[theseMultipleMatches] <-
-          "MULTIPLE_MATCH"
-        uniqueAnalysis$pairwise[[i]]$focal$rowFlag <-
-          "CHECK_UNIQUE"
+      theseMultipleMatches <- which(uniqueAnalysis$pairwise[[i]]$match$index %in% indexMultipleMatches)
+      if (length(theseMultipleMatches) != 0) {
+        uniqueAnalysis$pairwise[[i]]$match$rowFlag[theseMultipleMatches] <- "MULTIPLE_MATCH"
+        uniqueAnalysis$pairwise[[i]]$focal$rowFlag <- "CHECK_UNIQUE"
       } else {
         uniqueAnalysis$pairwise[[i]]$focal$rowFlag <- "UNIQUE"
       }
     }
-    if (length(indexMultipleMatches > 0)) {
+
+    if (length(indexMultipleMatches) > 0) {
       uniqueAnalysis$multipleMatches <- amDatasetFocal
-      multipleMatchesDatasetFocal <-
-        which(amDatasetFocal$index %in% indexMultipleMatches)
-      uniqueAnalysis$multipleMatches$index <-
-        uniqueAnalysis$multipleMatches$index[multipleMatchesDatasetFocal]
+      multipleMatchesDatasetFocal <- which(amDatasetFocal$index %in% indexMultipleMatches)
+      uniqueAnalysis$multipleMatches$index <- uniqueAnalysis$multipleMatches$index[multipleMatchesDatasetFocal]
       if (!is.null(uniqueAnalysis$multipleMatches$metaData)) {
-        uniqueAnalysis$multipleMatches$metaData <-
-          uniqueAnalysis$multipleMatches$metaData[multipleMatchesDatasetFocal]
+        uniqueAnalysis$multipleMatches$metaData <- uniqueAnalysis$multipleMatches$metaData[multipleMatchesDatasetFocal]
       }
-      tmpMultilocus <-
-        matrix(
-          uniqueAnalysis$multipleMatches$multilocus[multipleMatchesDatasetFocal, ],
-          length(indexMultipleMatches),
-          ncol(uniqueAnalysis$multipleMatches$multilocus),
-          byrow = FALSE
-        )
-      dimnames(tmpMultilocus)[[2]] <-
-        dimnames(uniqueAnalysis$multipleMatches$multilocus)[[2]]
+      tmpMultilocus <- matrix(
+        uniqueAnalysis$multipleMatches$multilocus[multipleMatchesDatasetFocal, ],
+        length(indexMultipleMatches),
+        ncol(uniqueAnalysis$multipleMatches$multilocus),
+        byrow = FALSE
+      )
+      dimnames(tmpMultilocus)[[2]] <- dimnames(uniqueAnalysis$multipleMatches$multilocus)[[2]]
       uniqueAnalysis$multipleMatches$multilocus <- tmpMultilocus
     }
 
     uniqueAnalysis$unique <- clusterAnalysis$unique
-    uniqueAnalysis$unique$psib <-
-      unlist(lapply(uniqueAnalysis$pairwise, function(x)
-        x$match$psib[1]))
-    uniqueAnalysis$unique$rowFlag <-
-      unlist(lapply(uniqueAnalysis$pairwise, function(x)
-        x$focal$rowFlag))
-
-
-    ## Add in other reference items involved in the analysis
+    uniqueAnalysis$unique$psib <- unlist(lapply(uniqueAnalysis$pairwise, function(x)
+      x$match$psib[1]))
+    uniqueAnalysis$unique$rowFlag <- unlist(lapply(uniqueAnalysis$pairwise, function(x)
+      x$focal$rowFlag))
     uniqueAnalysis$cutHeight <- cutHeight
-    uniqueAnalysis$consensusMethod <-
-      clusterAnalysis$consensusMethod
+    uniqueAnalysis$consensusMethod <- clusterAnalysis$consensusMethod
     uniqueAnalysis$alleleMismatch <- alleleMismatch
     uniqueAnalysis$doPsib <- doPsib
     uniqueAnalysis$alleleFreq <- clusterAnalysisAlleleFreq
 
-
     return(uniqueAnalysis)
-
-
-
   }
 
 
@@ -1787,49 +1333,42 @@ amUniqueProfile <-
            doPlot = TRUE,
            consensusMethod = 1,
            verbose = TRUE) {
-    if (!inherits(amDatasetFocal, "amDataset")) {
-      stop("allelematch:  amDatasetFocal must be an object of class \"amDataset\"",
+    if (!inherits(amDatasetFocal, "amDataset"))
+      stop("allelematch: amDatasetFocal must be an object of class \"amDataset\"",
            call. = FALSE)
-    }
 
-    # Set multilocusMap to default if not given
     if (is.null(multilocusMap)) {
       if ((ncol(amDatasetFocal$multilocus) %% 2) != 0) {
         stop(
-          "allelematch:  there are an odd number of genotype columns in amDatasetFocal; Please specify multilocusMap manually",
+          "allelematch: there are an odd number of genotype columns in amDatasetFocal; Please specify multilocusMap manually",
           call. = FALSE
         )
-      } else
+      } else if (verbose) {
         cat(
-          "allelematch:  assuming genotype columns are in pairs, representing",
+          "allelematch: assuming genotype columns are in pairs, representing ",
           ncol(amDatasetFocal$multilocus) / 2,
-          "loci\n"
+          " loci\n",
+          sep = ""
         )
-      multilocusMap <-
-        rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
-    } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus))  { ## Check multilocusMap is the correct length
-      stop(
-        "allelematch:  multilocusMap must be a vector of integers or strings giving the mappings onto loci for all genotype columns in amDatasetFocal;
-             Example: gender followed by 4 diploid loci in paired columns could be coded: mutlilocusMap=c(1,2,2,3,3,4,4,5,5)
-             or as: multilocusMap=c(\"GENDER\",\"LOC1\",\"LOC1\",\"LOC2\",\"LOC2\",\"LOC3\",\"LOC3\",\"LOC4\",\"LOC4\")",
-        call. = FALSE
-      )
+      }
+      multilocusMap <- rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
+    } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus)) {
+      stop("allelematch: multilocusMap length mismatch.", call. = FALSE)
     } else if (sum(table(multilocusMap) > 2) > 0) {
       stop(
-        "allelematch:  multilocusMap indicates that a locus occurs in three or more columns;  this situation is not yet handled",
+        "allelematch: multilocusMap indicates that a locus occurs in three or more columns.",
         call. = FALSE
       )
     }
     multilocusMap <- as.integer(as.factor(multilocusMap))
 
-    ## More checking of input parameters
     if (sum(!(c(
       is.null(alleleMismatch),
       is.null(matchThreshold),
       is.null(cutHeight)
     ))) > 1) {
       stop(
-        "allelematch:  please specify alleleMismatch OR matchThreshold OR cutHeight.",
+        "allelematch: please specify alleleMismatch OR matchThreshold OR cutHeight.",
         call. = FALSE
       )
     }
@@ -1844,81 +1383,66 @@ amUniqueProfile <-
       cutHeight <- 1 - matchThreshold
       profileType <- "alleleMismatch"
     } else {
-      if (length(c(alleleMismatch, matchThreshold, cutHeight)) < 2) {
-        stop(
-          "allelematch:  please provide a range of parameter values for alleleMismatch OR matchThreshold OR cutHeight.  e.g. alleleMismatch=c(0,1,2,3,4,5,6,7,8)",
-          call. = FALSE
-        )
-      }
+      if (length(c(alleleMismatch, matchThreshold, cutHeight)) < 2)
+        stop("allelematch: please provide a range of parameter values.",
+             call. = FALSE)
 
       if (!is.null(alleleMismatch)) {
-        if (length(alleleMismatch) <= 2) {
-          stop(
-            "allelematch:  alleleMismatch must be a vector containing a sequence of three or more values",
-            call. = FALSE
-          )
-        }
-        matchThreshold <-
-          1 - (alleleMismatch / length(multilocusMap))
+        if (length(alleleMismatch) <= 2)
+          stop("allelematch: alleleMismatch must contain three or more values",
+               call. = FALSE)
+        matchThreshold <- 1 - (alleleMismatch / length(multilocusMap))
         cutHeight <- 1 - matchThreshold
         profileType <- "alleleMismatch"
       } else if (!is.null(cutHeight)) {
-        if ((any(cutHeight < 0)) || (any(cutHeight > 1))) {
-          stop("allelematch:  cutHeight must be between 0 and 1", call. = FALSE)
-        }
-        if (length(cutHeight) <= 2) {
-          stop(
-            "allelematch:  cutHeight must be a vector containing a sequence of three or more values",
-            call. = FALSE
-          )
-        }
+        if ((any(cutHeight < 0)) ||
+            (any(cutHeight > 1)))
+          stop("allelematch: cutHeight must be between 0 and 1", call. = FALSE)
+        if (length(cutHeight) <= 2)
+          stop("allelematch: cutHeight must contain three or more values",
+               call. = FALSE)
         matchThreshold <- 1 - cutHeight
-        alleleMismatch <-
-          round((1 - matchThreshold) * length(multilocusMap), 2)
+        alleleMismatch <- round((1 - matchThreshold) * length(multilocusMap), 2)
         profileType <- "cutHeight"
       } else {
-        if ((any(matchThreshold < 0)) || (any(matchThreshold > 1))) {
-          stop("allelematch:  matchThreshold must be between 0 and 1",
+        if ((any(matchThreshold < 0)) ||
+            (any(matchThreshold > 1)))
+          stop("allelematch: matchThreshold must be between 0 and 1",
                call. = FALSE)
-        }
-        if (length(matchThreshold) <= 2) {
-          stop(
-            "allelematch:  matchThreshold must be a vector containing a sequence of three or more values",
-            call. = FALSE
-          )
-        }
+        if (length(matchThreshold) <= 2)
+          stop("allelematch: matchThreshold must contain three or more values",
+               call. = FALSE)
         cutHeight <- 1 - matchThreshold
-        alleleMismatch <-
-          round((1 - matchThreshold) * length(multilocusMap), 2)
+        alleleMismatch <- round((1 - matchThreshold) * length(multilocusMap), 2)
         profileType <- "matchThreshold"
       }
     }
-    if (verbose) {
-      cat(
-        "allelematch:  running amUnique() at",
-        length(matchThreshold),
-        "different values of",
-        profileType,
-        "\n"
-      )
-    }
 
-    profileResults <-
-      data.frame(
-        matchThreshold = NA,
-        cutHeight = NA,
-        alleleMismatch = NA,
-        samples = NA,
-        unique = NA,
-        unclassified = NA,
-        multipleMatch = NA,
-        guessOptimum = NA
+    if (verbose)
+      cat(
+        "allelematch: running amUnique() at ",
+        length(matchThreshold),
+        " different values of ",
+        profileType,
+        "\n",
+        sep = ""
       )
+
+    profileResults <- data.frame(
+      matchThreshold = NA,
+      cutHeight = NA,
+      alleleMismatch = NA,
+      samples = NA,
+      unique = NA,
+      unclassified = NA,
+      multipleMatch = NA,
+      guessOptimum = NA
+    )
 
     for (i in 1:length(matchThreshold)) {
-      if (verbose)
+      if (verbose) {
         cat(
-          "allelematch:  ",
+          "allelematch: ",
           i,
           " of ",
           length(matchThreshold),
@@ -1931,27 +1455,23 @@ amUniqueProfile <-
           ")\n",
           sep = ""
         )
+      }
       profileResults[i, "matchThreshold"] <- matchThreshold[i]
       profileResults[i, "cutHeight"] <- cutHeight[i]
       profileResults[i, "alleleMismatch"] <- alleleMismatch[i]
-      amUniqueResult <-
-        amUnique(
-          amDatasetFocal,
-          matchThreshold = matchThreshold[i],
-          multilocusMap = multilocusMap,
-          verbose = FALSE
-        )
-      profileResults[i, "unclassified"] <-
-        amUniqueResult$numUnclassified
-      profileResults[i, "multipleMatch"] <-
-        amUniqueResult$numMultipleMatch
+      amUniqueResult <- amUnique(
+        amDatasetFocal,
+        matchThreshold = matchThreshold[i],
+        multilocusMap = multilocusMap,
+        verbose = FALSE
+      )
+      profileResults[i, "unclassified"] <- amUniqueResult$numUnclassified
+      profileResults[i, "multipleMatch"] <- amUniqueResult$numMultipleMatch
       profileResults[i, "unique"] <- amUniqueResult$focalDatasetN
-      profileResults[i, "samples"] <-
-        amUniqueResult$comparisonDatasetN
+      profileResults[i, "samples"] <- amUniqueResult$comparisonDatasetN
       profileResults[i, "guessOptimum"] <- NA
     }
-    profileResults <-
-      profileResults[order(matchThreshold, decreasing = TRUE), ]
+    profileResults <- profileResults[order(matchThreshold, decreasing = TRUE), ]
 
     if (guessOptimum) {
       LeftTrimZero <- function(trimString) {
@@ -1965,107 +1485,82 @@ amUniqueProfile <-
         return(newString)
       }
 
-      ## Guess the second minimum...if it exists
       i <- 0
       repeat {
         i <- i + 1
-        minimum <-
-          which.min(profileResults$multipleMatch[i:nrow(profileResults)])[1] + (i -
-                                                                                  1)
-        if (minimum == 1) {
-          slopeAtMinimum <- 0
-        } else {
-          slopeAtMinimum <-
-            profileResults$multipleMatch[minimum] - profileResults$multipleMatch[minimum -
-                                                                                   1]
-        }
+        minimum <- which.min(profileResults$multipleMatch[i:nrow(profileResults)])[1] + (i - 1)
+        slopeAtMinimum <- if (minimum == 1)
+          0
+        else
+          profileResults$multipleMatch[minimum] - profileResults$multipleMatch[minimum - 1]
         if ((slopeAtMinimum < 0) ||
             (minimum == nrow(profileResults)))
           break
       }
       secondMinimum <- minimum
 
-      ## Guess the morphology
-      checkMultipleMatch <-
-        LeftTrimZero(paste(profileResults$multipleMatch, collapse = ""))
-      leadingZeroes <-
-        nchar(paste(profileResults$multipleMatch, collapse = "")) - nchar(checkMultipleMatch)
+      checkMultipleMatch <- LeftTrimZero(paste0(profileResults$multipleMatch, collapse = ""))
+      leadingZeroes <- nchar(paste0(profileResults$multipleMatch, collapse = "")) - nchar(checkMultipleMatch)
+
       if (leadingZeroes == length(profileResults$multipleMatch)) {
         profileMorphology <- "ZeroFlat"
-      } else if (sum(profileResults$multipleMatch[(leadingZeroes + 1):length(profileResults$multipleMatch)] ==
-                   0) == 0) {
-        if (secondMinimum == length(profileResults$multipleMatch)) {
-          profileMorphology <- "NoSecondMinimum"
-        } else {
-          profileMorphology <- "NonZeroSecondMinimum"
-        }
+      } else if (sum(profileResults$multipleMatch[(leadingZeroes + 1):length(profileResults$multipleMatch)] == 0) == 0) {
+        profileMorphology <- if (secondMinimum == length(profileResults$multipleMatch))
+          "NoSecondMinimum"
+        else
+          "NonZeroSecondMinimum"
       } else {
         profileMorphology <- "ZeroSecondMinimum"
       }
 
-      ## Guess the optimal parameter value using a different approach depending on morphology
       if (profileMorphology %in% c("ZeroFlat", "NoSecondMinimum")) {
-        guessOptimum <-
-          which.min(abs(sapply(2:(length(profileResults$unique) - 1), function(x)
-            (profileResults$unique[x - 1] - profileResults$unique[x + 1]) / 2))) +
-          1
+        guessOptimum <- which.min(abs(sapply(2:(length(profileResults$unique) - 1), function(x)
+          (profileResults$unique[x - 1] - profileResults$unique[x + 1]) / 2))) + 1
       } else {
         guessOptimum <- secondMinimum
       }
 
-      profileResults$missingDataLoad <-
-        round(
-          sum(amDatasetFocal$multilocus == amDatasetFocal$missingCode) / length(amDatasetFocal$multilocus),
-          3
-        )
-      profileResults$allelicDiversity <-
-        round(mean(unlist(
-          lapply(amUniqueResult$alleleFreq$loci, function(x)
-            x$numAlleles)
-        )), 1)
-      profileResults$guessOptimum <-
-        rep(FALSE, nrow(profileResults))
+      profileResults$missingDataLoad <- round(
+        sum(amDatasetFocal$multilocus == amDatasetFocal$missingCode) / length(amDatasetFocal$multilocus),
+        3
+      )
+      profileResults$allelicDiversity <- round(mean(unlist(
+        lapply(amUniqueResult$alleleFreq$loci, function(x)
+          x$numAlleles)
+      )), 1)
+      profileResults$guessOptimum <- rep(FALSE, nrow(profileResults))
       profileResults$guessOptimum[guessOptimum] <- TRUE
       profileResults$guessMorphology <- profileMorphology
 
-
       if (verbose) {
+        caution_text <- if (profileMorphology %in% c("NonZeroSecondMinimum", "NoSecondMinimum"))
+          "allelematch: Use extra caution. Detection of optimal parameter is more error prone with this morphology.\n"
+        else
+          ""
         cat(
-          "allelematch:  missing data load for input dataset is",
+          "allelematch: missing data load for input dataset is ",
           profileResults$missingDataLoad[1],
-          "\n"
-        )
-        cat(
-          "allelematch:  allelic diversity for input dataset is",
+          "\n",
+          "allelematch: allelic diversity for input dataset is ",
           profileResults$allelicDiversity[1],
-          "\n"
-        )
-        cat(
-          "allelematch:  Best guess for optimal parameter at alleleMismatch=",
+          "\n",
+          "allelematch: Best guess for optimal parameter at alleleMismatch=",
           profileResults$alleleMismatch[guessOptimum],
           " OR matchThreshold=",
           profileResults$matchThreshold[guessOptimum],
           " OR cutHeight=",
           profileResults$cutHeight[guessOptimum],
           "\n",
-          sep = ""
-        )
-        cat(
-          "allelematch:  Best guess for unique profile morphology: ",
+          "allelematch: Best guess for unique profile morphology: ",
           profileMorphology,
           "\n",
+          caution_text,
           sep = ""
         )
-        if (profileMorphology %in% c("NonZeroSecondMinimum", "NoSecondMinimum")) {
-          cat(
-            "allelematch:  Use extra caution.  Detection of optimal parameter is more error prone with this morphology.\n"
-          )
-        }
       }
     }
 
     if (doPlot) {
-      #dev.new()
       graphics::layout(matrix(c(1, 1, 1, 1, 1, 1, 1, 2, 2, 2), 1, 10))
       graphics::par(mar = c(5.1, 4.1, 2, 2))
 
@@ -2111,6 +1606,7 @@ amUniqueProfile <-
         lty = "dotted",
         col = "black"
       )
+
       if (guessOptimum) {
         graphics::arrows(
           profileResults[, profileType][which(profileResults$guessOptimum)],
@@ -2145,22 +1641,14 @@ amUniqueProfile <-
       graphics::text(
         0,
         88,
-        paste(
-          "missingDataLoad=",
-          profileResults$missingDataLoad[1],
-          sep = ""
-        ),
+        paste0("missingDataLoad=", profileResults$missingDataLoad[1]),
         cex = 1,
         adj = c(0, 0.5)
       )
       graphics::text(
         0,
         86,
-        paste(
-          "allelicDiversity=",
-          profileResults$allelicDiversity[1],
-          sep = ""
-        ),
+        paste0("allelicDiversity=", profileResults$allelicDiversity[1]),
         cex = 1,
         adj = c(0, 0.5)
       )
@@ -2173,6 +1661,7 @@ amUniqueProfile <-
         col = c("red", "black", "black"),
         pch = c(19, 22, 24)
       )
+
       if (guessOptimum) {
         graphics::text(0,
                        35,
@@ -2182,8 +1671,7 @@ amUniqueProfile <-
         graphics::text(
           0,
           33,
-          paste(profileType, "=", signif(profileResults[, profileType][which(profileResults$guessOptimum)], 2), sep =
-                  ""),
+          paste0(profileType, "=", signif(profileResults[, profileType][which(profileResults$guessOptimum)], 2)),
           cex = 1,
           adj = c(0, 0.5)
         )
@@ -2209,7 +1697,6 @@ amUniqueProfile <-
         }
       }
     }
-
     return(profileResults)
   }
 
@@ -2219,25 +1706,26 @@ summary.amUnique <- function(object,
                              html = NULL,
                              csv = NULL,
                              ...) {
-  if (!inherits(object, "amUnique")) {
-    stop("allelematch:  this function requires an \"amUnique\" object",
+  if (!inherits(object, "amUnique"))
+    stop("allelematch: this function requires an \"amUnique\" object",
          call. = FALSE)
-  }
 
   if (!is.null(html)) {
-    if (is.logical(html) && (html == TRUE))
+    if (is.logical(html) &&
+        (html == TRUE))
       amHTML.amUnique(object)
-    else if (is.logical(html) && (html == FALSE))
+    else if (is.logical(html) &&
+             (html == FALSE))
       html <- NULL
     else
       amHTML.amUnique(object, htmlFile = html)
   }
-  if (!is.null(csv)) {
+  if (!is.null(csv))
     amCSV.amUnique(object, csvFile = csv, ...)
-  }
+
   if (is.null(html) && is.null(csv)) {
     cat(
-      "allelematch:  Console summary is not available for \"amUnique\" objects.  Please use summary.amUnique(x, html=TRUE) or summary.amUnique(x, csv=\"file.csv\") options.\n"
+      "allelematch: Console summary is not available for \"amUnique\" objects. Please use summary.amUnique(x, html=TRUE) or summary.amUnique(x, csv=\"file.csv\") options.\n"
     )
   }
 }
@@ -2247,148 +1735,28 @@ summary.amUnique <- function(object,
 amCSSForHTML <- function() {
   return(
     "
-        html {
-            height: 100%;
-        }
-
-        body {
-            background-color: inherit;
-            color: inherit;
-            font-family: Verdana;
-            font-size: xx-small;
-            margin: 0;
-            height: 100%;
-
-        }
-
-        a:active {
-            color: #CC0000;
-        }
-
-        a:link {
-            color: #CC0000;
-        }
-
-        a:visited {
-            color: #CC0000;
-        }
-
-        .amMismatchAllele {
-            background-color: #CC0000;
-            color: white;
-            font-weight: bold;
-        }
-
-        .amMissingAllele {
-            background-color: #FFCCCC;
-        }
-
-        .amInterpolatedAllele {
-            background-color: blue;
-            color: white;
-        }
-
-        .amGrid {
-            border-collapse: separate;
-        }
-
-        .amGridContent {
-            padding: 0;
-            border: 1px solid #7EACB1;
-        }
-
-
-        .amGridUpperPanel, .amGridLowerPanel {
-            padding: 3px;
-            border-left: 0;
-            border-right: 0;
-            background-color: #F4FAFB;
-            color: #2A769D;
-            font-family: Verdana;
-            font-size: xx-small;
-        }
-
-        .amGridUpperPanel {
-            border-top: 0px;
-            border-bottom: 1px solid;
-            border-color: #7EACB1;
-        }
-
-        .amGridMiddlePanel {
-            border: 0;
-        }
-
-        .amGridLowerPanel {
-            border-top: 1px solid;
-            border-bottom: 0px;
-            border-color: #C2D4DA;
-        }
-
-        .amGridUpperPanel td, .amGridLowerPanel td {
-            color: #2A769D;
-            font-family: Verdana;
-            font-size: xx-small;
-        }
-
-
-        .amTable {
-            border: 0;
-            border-spacing: 0;
-            border-collapse: collapse;
-            empty-cells: show;
-            width: 100%;
-            font-family: Verdana;
-            font-size: xx-small;
-        }
-
-        .amTableSeparate {
-            border-collapse: separate;
-        }
-
-        .amTable td {
-            padding: 3px;
-            border-bottom: 1px solid;
-            border-top: 0px;
-            border-left: 0px;
-            border-right: 1px solid;
-            border-color: #C2D4DA;
-            white-space:nowrap;
-        }
-
-
-        .amTable .amTableHeader, .amTable .amTableHeader td {
-            background-color: #B7D8DC;
-            color: #000000;
-            border-bottom: 1px solid;
-            border-right: 1px solid;
-            border-color: #7EACB1;
-            background-repeat: repeat-x;
-            vertical-align: top;
-            white-space:nowrap;
-        }
-
-        .amPointer {
-            cursor: pointer;
-        }
-
-
-        .amTableHeaderBtn {
-            width: 100%;
-            font-family: Verdana;
-            font-size: xx-small;
-        }
-
-        .amTableHeader .amTableHeaderBtn td {
-            background: transparent;
-            padding: 0;
-            border: 0;
-            white-space: nowrap;
-        }
-
-        .amTableSelectRow {
-            background-color: #FFFF66;
-            color: #000000;
-        }\n"
+        html { height: 100%; }
+        body { background-color: inherit; color: inherit; font-family: Verdana; font-size: xx-small; margin: 0; height: 100%; }
+        a:active, a:link, a:visited { color: #CC0000; }
+        .amMismatchAllele { background-color: #CC0000; color: white; font-weight: bold; }
+        .amMissingAllele { background-color: #FFCCCC; }
+        .amInterpolatedAllele { background-color: blue; color: white; }
+        .amGrid { border-collapse: separate; }
+        .amGridContent { padding: 0; border: 1px solid #7EACB1; }
+        .amGridUpperPanel, .amGridLowerPanel { padding: 3px; background-color: #F4FAFB; color: #2A769D; font-family: Verdana; font-size: xx-small; }
+        .amGridUpperPanel { border-top: 0px; border-bottom: 1px solid; border-color: #7EACB1; }
+        .amGridMiddlePanel { border: 0; }
+        .amGridLowerPanel { border-top: 1px solid; border-bottom: 0px; border-color: #C2D4DA; }
+        .amGridUpperPanel td, .amGridLowerPanel td { color: #2A769D; font-family: Verdana; font-size: xx-small; }
+        .amTable { border: 0; border-spacing: 0; border-collapse: collapse; empty-cells: show; width: 100%; font-family: Verdana; font-size: xx-small; }
+        .amTableSeparate { border-collapse: separate; }
+        .amTable td { padding: 3px; border-bottom: 1px solid; border-right: 1px solid; border-color: #C2D4DA; white-space:nowrap; }
+        .amTable .amTableHeader, .amTable .amTableHeader td { background-color: #B7D8DC; color: #000000; border-bottom: 1px solid; border-right: 1px solid; border-color: #7EACB1; vertical-align: top; white-space:nowrap; }
+        .amPointer { cursor: pointer; }
+        .amTableHeaderBtn { width: 100%; font-family: Verdana; font-size: xx-small; }
+        .amTableHeader .amTableHeaderBtn td { background: transparent; padding: 0; border: 0; white-space: nowrap; }
+        .amTableSelectRow { background-color: #FFFF66; color: #000000; }
+    "
   )
 }
 
@@ -2398,327 +1766,200 @@ amHTML.amPairwise <-
   function(x,
            htmlFile = NULL,
            htmlCSS = amCSSForHTML()) {
-    if (!inherits(x, "amPairwise")) {
-      stop("allelematch:  this function requires an \"amPairwise\" object",
+    if (!inherits(x, "amPairwise"))
+      stop("allelematch: this function requires an \"amPairwise\" object",
            call. = FALSE)
-    }
 
     if (is.null(htmlFile)) {
-      if (file.exists(Sys.getenv("TMP"))) {
-        htmlFilePath <- Sys.getenv("TMP")
-      } else if (file.exists(Sys.getenv("R_USER"))) {
-        htmlFilePath <- Sys.getenv("R_USER")
-      } else {
-        htmlFilePath <- "."
-      }
-      htmlFile <-
-        paste(htmlFilePath,
-              "\\",
-              class(x),
-              "_",
-              paste(sample(c(LETTERS[1:26], 0:9))[1:8], collapse = ""),
-              ".htm",
-              sep = "")
-
+      htmlFilePath <- tempdir()
+      htmlFile <- file.path(htmlFilePath, "amPairwise.html")
       usingTmpFile <- TRUE
     } else {
       usingTmpFile <- FALSE
     }
 
-    fileID <- file(htmlFile, open = "wt")
+    fileID <- file(htmlFile, "w")
 
-    ## Open page with correct HTML header
     cat(
-      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n
-         <html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'><head>\n
-        <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></meta>\n",
-      file = fileID
-    )
-
-    ## Title of page
-    cat(paste(
-      c("<title>allelematch: ", class(x), "() output</title>"),
-      collapse = ""
-    ), file = fileID, append = TRUE)
-
-    ## Add CSS
-    cat(paste(
-      c("<style type=\"text/css\">", htmlCSS, "</style>"),
-      collapse = "\n"
-    ),
-    file = fileID,
-    append = TRUE)
-    cat("</head><body>", file = fileID, append = TRUE)
-
-    ## Page-wide DIV
-    cat(
-      "<div style=\"margin-left:5%; margin-right:5%\">",
-      file = fileID,
-      append = TRUE
-    )
-
-    ## Page title area
-    cat(
-      "<br><table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-      file = fileID,
-      append = TRUE
-    )
-    cat("<div class=\"amGridUpperPanel\">",
-        file = fileID,
-        append = TRUE)
-    cat("<div style=\"font-size:x-small;\"><table>",
-        file = fileID,
-        append = TRUE)
-    cat(
+      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+      "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'><head>\n",
+      "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></meta>\n",
+      "<title>allelematch: ",
+      class(x),
+      "() output</title>\n",
+      paste0(
+        c("<style type=\"text/css\">", htmlCSS, "</style>"),
+        collapse = "\n"
+      ),
+      "\n",
+      "</head><body>\n",
+      "<div style=\"margin-left:5%; margin-right:5%\">\n",
+      "<br><table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">\n",
+      "<div class=\"amGridUpperPanel\">\n",
+      "<div style=\"font-size:x-small;\"><table>\n",
       "<tr><td style=\"width:400px;\"><span style=\"font-size:20px;\">allelematch<br>pairwise analysis</span><br><br></td></tr>\n",
       file = fileID,
+      sep = "",
       append = TRUE
     )
 
-    headerHTML <-  matrix("", 6, 2)
-    headerHTML[1,] <- c("\nfocal dataset N=", x$focalDatasetN)
+    headerHTML <- matrix("", 6, 2)
+    headerHTML[1, ] <- c("\nfocal dataset N=", x$focalDatasetN)
+    headerHTML[2, ] <- if (x$focalIsComparison)
+      c("focal dataset compared against itself", "")
+    else
+      c("comparison dataset N=", x$comparisonDatasetN)
+    headerHTML[3, ] <- c("missing data represented by: ", x$missingCode)
+    headerHTML[4, ] <- c(
+      "alleleMismatch (m-hat; maximum number of mismatching alleles): ",
+      round(x$alleleMismatch, 2)
+    )
+    headerHTML[5, ] <- c(
+      "matchThreshold (s-hat; lowest matching score returned): ",
+      round(x$matchThreshold, 3)
+    )
+    headerHTML[6, ] <- c("summary generated: ", date())
 
-    if (inherits(x, "amPairwise")) {
-      if (x$focalIsComparison)
-        headerHTML[2, ] <-
-          c("focal dataset compared against itself", "")
-      else
-        headerHTML[2, ] <-
-          c("comparison dataset N=", x$comparisonDatasetN)
-      headerHTML[3, ] <-
-        c("missing data represented by: ", x$missingCode)
-      headerHTML[4, ] <-
-        c(
-          "alleleMismatch (m-hat; maximum number of mismatching alleles): ",
-          round(x$alleleMismatch, 2)
-        )
-      headerHTML[5, ] <-
-        c(
-          "matchThreshold (s-hat; lowest matching score returned): ",
-          round(x$matchThreshold, 3)
-        )
-      headerHTML[6, ] <- c("summary generated: ", date())
-    }
-
-    cat(apply(headerHTML, 1, function(x)
-      paste("<tr><td><b>", x[1], "</b><em>", x[2], "</em></td></tr>\n", sep =
-              "")),
-      file = fileID,
-      append = TRUE)
     cat(
+      paste0(
+        "<tr><td><b>",
+        headerHTML[, 1],
+        "</b><em>",
+        headerHTML[, 2],
+        "</em></td></tr>\n",
+        collapse = ""
+      ),
       "</table></div></div></td></tr></table><br><br>\n",
       file = fileID,
+      sep = "",
       append = TRUE
     )
 
     y <- x$pairwise
-    ## Do tables for each focal genotype
     for (i in 1:length(y)) {
-      ## Table header
-      cat(
-        "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-        file = fileID,
-        append = TRUE
+      headerNames <- if (!is.null(y[[i]]$focal$metaData))
+        c("", "", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
+      else
+        c("", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
+      headerTDs <- paste0(
+        "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
+        headerNames,
+        "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
+        collapse = ""
       )
 
-      ## Content above header names
-      cat("<div class=\"amGridUpperPanel\">",
-          file = fileID,
-          append = TRUE)
-      cat(paste(
-        c(
+      cat(
+        "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
+        "<div class=\"amGridUpperPanel\">",
+        paste0(
           "<span style=\"font-size:medium;\">(",
           i,
           " of ",
           length(y),
           ")</span></div>"
         ),
-        collapse = ""
-      ),
-      file = fileID,
-      append = TRUE)
-
-
-      ## Header names
-      cat("<div class=\"amGridMiddlePanel\">\n",
-          file = fileID,
-          append = TRUE)
-      cat(
-        "<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n",
+        "<div class=\"amGridMiddlePanel\">\n<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n<tr class=\"amTableHeader\">\n",
+        headerTDs,
+        "</tr>\n<tr>\n",
         file = fileID,
+        sep = "",
         append = TRUE
       )
-      cat("<tr class=\"amTableHeader\">\n",
-          file = fileID,
-          append = TRUE)
-      if (!is.null(y[[i]]$focal$metaData))
-        headerNames <-
-        c("", "", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
-      else
-        headerNames <-
-        c("", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
-      sapply(headerNames, function(j)
-        cat(
-          paste(
-            "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
-            j,
-            "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
-            sep = ""
-          ),
-          file = fileID,
-          append = TRUE
-        ))
-      cat("</tr>\n", file = fileID, append = TRUE)
 
-      ## Content of tables
-      cat("<tr>\n", file = fileID, append = TRUE)
-
-      ## Focal genotype row
-      if (!is.null(y[[i]]$focal$metaData))
-        focalRow <-
+      focalRow <- if (!is.null(y[[i]]$focal$metaData))
         c(y[[i]]$focal$index,
           y[[i]]$focal$metaData,
           y[[i]]$focal$multilocus,
           "FOCAL")
       else
-        focalRow <-
         c(y[[i]]$focal$index, y[[i]]$focal$multilocus, "FOCAL")
-      sapply(focalRow, function(row)
-        cat(
-          paste(
-            "<td class=\"amTableSelectRow\"><div>",
-            row,
-            "</div></td>\n",
-            sep = ""
-          ),
-          file = fileID,
-          append = TRUE
-        ))
-      cat("</tr>\n", file = fileID, append = TRUE)
 
-      ## Matching genotype rows
-      for (k in 1:nrow(y[[i]]$match$multilocus)) {
-        if (!is.null(y[[i]]$focal$metaData)) {
-          matchRow <-
-            c(
+      cat(
+        paste0(
+          "<td class=\"amTableSelectRow\"><div>",
+          focalRow,
+          "</div></td>\n",
+          collapse = ""
+        ),
+        "</tr>\n",
+        file = fileID,
+        sep = "",
+        append = TRUE
+      )
+
+      num_matches <- nrow(y[[i]]$match$multilocus)
+      if (num_matches > 0) {
+        match_rows_html <- character(num_matches)
+        for (k in 1:num_matches) {
+          if (!is.null(y[[i]]$focal$metaData)) {
+            matchRow <- c(
               y[[i]]$match$index[k],
               y[[i]]$match$metaData[k],
               y[[i]]$match$multilocus[k, ],
               y[[i]]$match$score[k]
             )
-          matchFlags <- c(1, 1, y[[i]]$match$flags[k, ], 1)
-        } else {
-          matchRow <-
-            c(y[[i]]$match$index[k],
-              y[[i]]$match$multilocus[k, ],
-              y[[i]]$match$score[k])
-          matchFlags <- c(1, y[[i]]$match$flags[k, ], 1)
-        }
-        matchRowHTML <- "<tr>"
-        for (m in 1:length(matchRow)) {
-          if (matchFlags[m] == 1) {
-            matchRowHTML <-
-              paste(matchRowHTML,
-                    "<td><div>",
-                    matchRow[m],
-                    "</div></td>",
-                    sep = "")
-          } else if (matchFlags[m] == 0) {
-            matchRowHTML <-
-              paste(
-                matchRowHTML,
-                "<td><div class=\"amMismatchAllele\">",
-                matchRow[m],
-                "</div></td>",
-                sep = ""
-              )
-          } else if (matchFlags[m] == 2) {
-            matchRowHTML <-
-              paste(
-                matchRowHTML,
-                "<td><div class=\"amMissingAllele\">",
-                matchRow[m],
-                "</div></td>",
-                sep = ""
-              )
+            matchFlags <- c(1, 1, y[[i]]$match$flags[k, ], 1)
+          } else {
+            matchRow <- c(y[[i]]$match$index[k],
+                          y[[i]]$match$multilocus[k, ],
+                          y[[i]]$match$score[k])
+            matchFlags <- c(1, y[[i]]$match$flags[k, ], 1)
           }
+
+          cells <- character(length(matchRow))
+          cells[matchFlags == 1] <- paste0("<td><div>", matchRow[matchFlags == 1], "</div></td>")
+          cells[matchFlags == 0] <- paste0("<td><div class=\"amMismatchAllele\">",
+                                           matchRow[matchFlags == 0],
+                                           "</div></td>")
+          cells[matchFlags == 2] <- paste0("<td><div class=\"amMissingAllele\">",
+                                           matchRow[matchFlags == 2],
+                                           "</div></td>")
+          match_rows_html[k] <- paste0("<tr>", paste0(cells, collapse = ""), "</tr>\n")
         }
-        matchRowHTML <- paste(matchRowHTML, "</tr>\n")
-        cat(matchRowHTML, file = fileID, append = TRUE)
-      }
-
-
-      ## End of content tables
-      cat("</table></div>", file = fileID, append = TRUE)
-
-      ## Content below header names
-      cat("<div class=\"amGridLowerPanel\">",
-          file = fileID,
-          append = TRUE)
-
-      if ((y[[i]]$match$perfect == 0) &&
-          (y[[i]]$match$partial == 0)) {
-        cat("<span>No matches found.</span>",
+        cat(paste0(match_rows_html, collapse = ""),
             file = fileID,
             append = TRUE)
-      } else {
-        cat(paste(
-          c(
-            "<span>",
-            (y[[i]]$match$perfect),
-            " perfect matches found.  ",
-            y[[i]]$match$partial,
-            " partial matches found.</span>"
-          ),
-          collapse = ""
-        ),
-        file = fileID,
-        append = TRUE)
       }
-      cat("</div>", file = fileID, append = TRUE)
-      cat("</td></tr></table>", file = fileID, append = TRUE)
-      cat("<br><br>", file = fileID, append = TRUE)
+
+      match_summary_text <- if ((y[[i]]$match$perfect == 0) &&
+                                (y[[i]]$match$partial == 0))
+        "<span>No matches found.</span>"
+      else
+        paste0(
+          "<span>",
+          y[[i]]$match$perfect,
+          " perfect matches found. ",
+          y[[i]]$match$partial,
+          " partial matches found.</span>"
+        )
+
+      cat(
+        "</table></div><div class=\"amGridLowerPanel\">",
+        match_summary_text,
+        "</div></td></tr></table><br><br>",
+        file = fileID,
+        sep = "",
+        append = TRUE
+      )
     }
 
-
-    ## Page-wide
     cat(
-      "<span style=\"font-size:x-small;\">Generated by allelematch:  an R package<br></span>",
+      "<span style=\"font-size:x-small;\">Generated by allelematch: an R package<br></span><span style=\"font-size:x-small;\">To reference this analysis please use citation(\"allelematch\")<br><br></span></div></body></html>\n",
       file = fileID,
+      sep = "",
       append = TRUE
     )
-    cat(
-      "<span style=\"font-size:x-small;\">To reference this analysis please use citation(\"allelematch\")<br><br></span>",
-      file = fileID,
-      append = TRUE
-    )
-    cat("</div>", file = fileID, append = TRUE)
-    cat("</body></html>", file = fileID, append = TRUE)
     close(fileID)
 
-    ## If htmlFile is not given, assume that this is being run
-    ## for a quick view, therefore open produced html file in browser
-    ## Also take this opportunity to clean up temp folder, if required
     if (usingTmpFile) {
       cat("Opening HTML file (",
           htmlFile,
           ") in default browser...\n",
           sep = "")
       utils::browseURL(htmlFile)
-      if (htmlFilePath != ".") {
-        oldTmpFiles <- Sys.glob(paste(htmlFilePath, "\\am*.htm", sep = ""))
-        if (length(oldTmpFiles) > 0) {
-          deleteFiles <-
-            file.remove(oldTmpFiles[sapply(file.info(Sys.glob(
-              paste(htmlFilePath, "\\am*.htm", sep = "")
-            ))$ctime, function(x)
-              difftime(Sys.time(), x, units = "hours") > 24)])
-          if (sum(deleteFiles) > 0)
-            cat(
-              "Deleting allelematch HTML output older than 24 hours from temporary folder...\n"
-            )
-        }
-      }
+      oldTmpFiles <- Sys.glob(file.path(htmlFilePath, "am*.htm*"))
+      if (length(oldTmpFiles) > 0)
+        suppressWarnings(file.remove(oldTmpFiles))
     }
   }
 
@@ -2728,659 +1969,285 @@ amHTML.amCluster <-
   function(x,
            htmlFile = NULL,
            htmlCSS = amCSSForHTML()) {
-    if (!inherits(x, "amCluster")) {
-      stop("allelematch:  this function requires an \"amCluster\" object",
+    if (!inherits(x, "amCluster"))
+      stop("allelematch: this function requires an \"amCluster\" object",
            call. = FALSE)
-    }
 
     if (is.null(htmlFile)) {
-      if (file.exists(Sys.getenv("TMP"))) {
-        htmlFilePath <- Sys.getenv("TMP")
-      } else if (file.exists(Sys.getenv("R_USER"))) {
-        htmlFilePath <- Sys.getenv("R_USER")
-      } else {
-        htmlFilePath <- "."
-      }
-      htmlFile <-
-        paste(htmlFilePath,
-              "\\",
-              class(x),
-              "_",
-              paste(sample(c(LETTERS[1:26], 0:9))[1:8], collapse = ""),
-              ".htm",
-              sep = "")
-
+      htmlFilePath <- tempdir()
+      htmlFile <- file.path(htmlFilePath, "amCluster.html")
       usingTmpFile <- TRUE
     } else {
       usingTmpFile <- FALSE
     }
 
-    fileID <- file(htmlFile, open = "wt")
+    fileID <- file(htmlFile, "w")
 
-    ## Open page with correct HTML header
     cat(
-      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n
-         <html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'><head>\n
-        <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></meta>\n",
-      file = fileID
-    )
-
-    ## Title of page
-    cat(paste(
-      c("<title>allelematch: ", class(x), "() output</title>"),
-      collapse = ""
-    ), file = fileID, append = TRUE)
-
-    ## Add CSS
-    cat(paste(
-      c("<style type=\"text/css\">", htmlCSS, "</style>"),
-      collapse = "\n"
-    ),
-    file = fileID,
-    append = TRUE)
-    cat("</head><body>", file = fileID, append = TRUE)
-
-    ## Page-wide DIV
-    cat(
-      "<div style=\"margin-left:5%; margin-right:5%\">",
-      file = fileID,
-      append = TRUE
-    )
-
-    ## Page title area
-    cat(
-      "<br><table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-      file = fileID,
-      append = TRUE
-    )
-    cat("<div class=\"amGridUpperPanel\">",
-        file = fileID,
-        append = TRUE)
-    cat("<div style=\"font-size:x-small;\"><table>",
-        file = fileID,
-        append = TRUE)
-    cat(
+      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+      "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'><head>\n",
+      "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></meta>\n",
+      "<title>allelematch: ",
+      class(x),
+      "() output</title>\n",
+      paste0(
+        c("<style type=\"text/css\">", htmlCSS, "</style>"),
+        collapse = "\n"
+      ),
+      "\n",
+      "</head><body>\n<div style=\"margin-left:5%; margin-right:5%\">\n",
+      "<br><table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">\n<div class=\"amGridUpperPanel\">\n<div style=\"font-size:x-small;\"><table>\n",
       "<tr><td style=\"width:400px;\"><span style=\"font-size:20px;\">allelematch<br>cluster analysis</span><br><br></td></tr>\n",
       file = fileID,
-      append = TRUE
+      sep = ""
     )
 
-    headerHTML <-  matrix("", 12, 2)
-    headerHTML[1,] <- c("\nFocal dataset N=", x$focalDatasetN)
+    headerHTML <- matrix("", 12, 2)
+    headerHTML[1, ] <- c("\nFocal dataset N=", x$focalDatasetN)
+    headerHTML[2, ] <- c("unique N=", nrow(x$unique$multilocus))
+    headerHTML[3, ] <- c("unique (consensus) N=", length(x$cluster))
+    headerHTML[4, ] <- c("unique (singletons) N=", length(x$singletons))
+    headerHTML[5, ] <- c("missing data represented by: ", x$missingCode)
+    headerHTML[6, ] <- c("missing data matching method: ", x$missingMethod)
+    headerHTML[7, ] <- c("clustered genotypes consensus method: ", x$consensusMethod)
+    headerHTML[8, ] <- c("hierarchical clustering method: ", x$clusterMethod)
+    headerHTML[9, ] <- c(
+      "cutHeight (d-hat; dynamic tree cutting height): ",
+      format(x$cutHeight, scientific = FALSE)
+    )
+    headerHTML[10, ] <- c("run until only singletons: ", x$runUntilSingletons)
+    headerHTML[11, ] <- c("runs: ", x$totalRuns)
+    headerHTML[12, ] <- c("summary generated: ", date())
 
-    if (inherits(x, "amCluster")) {
-      headerHTML[2, ] <- c("unique N=", nrow(x$unique$multilocus))
-      headerHTML[3, ] <-
-        c("unique (consensus) N=", length(x$cluster))
-      headerHTML[4, ] <-
-        c("unique (singletons) N=", length(x$singletons))
-      headerHTML[5, ] <-
-        c("missing data represented by: ", x$missingCode)
-      headerHTML[6, ] <-
-        c("missing data matching method: ", x$missingMethod)
-      headerHTML[7, ] <-
-        c("clustered genotypes consensus method: ", x$consensusMethod)
-      headerHTML[8, ] <-
-        c("hierarchical clustering method: ", x$clusterMethod)
-      headerHTML[9, ] <-
-        c(
-          "cutHeight (d-hat; dynamic tree cutting height): ",
-          format(x$cutHeight, scientific = FALSE)
-        )
-      headerHTML[10, ] <-
-        c("run until only singletons: ", x$runUntilSingletons)
-      headerHTML[11, ] <- c("runs: ", x$totalRuns)
-      headerHTML[12, ] <- c("summary generated: ", date())
-    }
-
-    cat(apply(headerHTML, 1, function(x)
-      paste("<tr><td><b>", x[1], "</b><em>", x[2], "</em></td></tr>\n", sep =
-              "")),
-      file = fileID,
-      append = TRUE)
     cat(
+      paste0(
+        "<tr><td><b>",
+        headerHTML[, 1],
+        "</b><em>",
+        headerHTML[, 2],
+        "</em></td></tr>\n",
+        collapse = ""
+      ),
       "</table></div></div></td></tr></table><br><br>\n",
       file = fileID,
+      sep = "",
       append = TRUE
     )
 
-    ## Unique Genotypes
     y <- x$unique
-    ## Table header
-    cat(
-      "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-      file = fileID,
-      append = TRUE
-    )
-
-    ## Content above header names
-    cat("<div class=\"amGridUpperPanel\">",
-        file = fileID,
-        append = TRUE)
-    cat(paste(
-      c(
-        "<span style=\"font-size:medium;\">Unique genotypes</span></div>"
-      ),
-      collapse = ""
-    ), file = fileID, append = TRUE)
-
-    ## Header names
-    cat("<div class=\"amGridMiddlePanel\">\n",
-        file = fileID,
-        append = TRUE)
-    cat(
-      "<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n",
-      file = fileID,
-      append = TRUE
-    )
-    cat("<tr class=\"amTableHeader\">\n",
-        file = fileID,
-        append = TRUE)
-    if (!is.null(y$metaData))
-      headerNames <-
-      c("", "", "", dimnames(y$multilocus)[[2]], "Type")
-    else
-      headerNames <-
+    headerNames <- if (!is.null(y$metaData))
       c("", "", dimnames(y$multilocus)[[2]], "Type")
-    sapply(headerNames, function(j)
-      cat(
-        paste(
-          "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
-          j,
-          "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
-          sep = ""
-        ),
-        file = fileID,
-        append = TRUE
-      ))
-    cat("</tr>\n", file = fileID, append = TRUE)
-
-    ## Unique genotype rows
-    for (k in 1:nrow(y$multilocus)) {
-      cat(
-        "<tr onmouseout=\"this.style.cssText='background-color:none;';\" onmouseover=\"this.style.cssText='background-color:#E0FFFF';\" style=\"\">\n",
-        file = fileID,
-        append = TRUE
-      )
-      if (!is.null(y$metaData)) {
-        matchRow <-
-          c(
-            paste("<a href=\"#", y$index[k], "\">Jump</a>", sep = ""),
-            paste("<a name=\"back_", y$index[k], "\">", y$index[k], "</a>", sep = ""),
-            y$metaData[k],
-            y$multilocus[k, ],
-            y$uniqueType[k]
-          )
-      } else {
-        matchRow <-
-          c(
-            paste("<a href=\"#", y$index[k], "\">Jump</a>", sep = ""),
-            paste("<a name=\"back_", y$index[k], "\">", y$index[k], "</a>", sep = ""),
-            y$multilocus[k, ],
-            y$uniqueType[k]
-          )
-      }
-      sapply(matchRow, function(j)
-        cat(
-          paste("<td><div>",
-                j,
-                "</div></td>\n", sep = ""),
-          file = fileID,
-          append = TRUE
-        ))
-      cat("</tr>\n", file = fileID, append = TRUE)
-    }
-
-    ## End of content tables
-    cat("</table></div>", file = fileID, append = TRUE)
-
-    ## Content below header names
-    cat("<div class=\"amGridLowerPanel\">",
-        file = fileID,
-        append = TRUE)
-    cat(paste(
-      c(
-        "<span>There were ",
-        nrow(y$multilocus),
-        " unique genotypes identified using the parameters supplied.</span>"
-      ),
+    else
+      c("", dimnames(y$multilocus)[[2]], "Type")
+    headerTDs <- paste0(
+      "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
+      headerNames,
+      "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
       collapse = ""
-    ), file = fileID, append = TRUE)
-    cat("</div>", file = fileID, append = TRUE)
-    cat("</td></tr></table>", file = fileID, append = TRUE)
-    cat("<br><br>", file = fileID, append = TRUE)
+    )
 
+    cat(
+      "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\"><div class=\"amGridUpperPanel\"><span style=\"font-size:medium;\">Unique genotypes</span></div>",
+      "<div class=\"amGridMiddlePanel\">\n<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n<tr class=\"amTableHeader\">\n",
+      headerTDs,
+      "</tr>\n",
+      file = fileID,
+      sep = "",
+      append = TRUE
+    )
 
-    ## Clustered genotypes
-    y <- x$cluster
-    if (length(y) > 0) {
-      ## Do tables for each cluster
-      for (i in 1:length(y)) {
-        ## Table header
-        cat(
-          "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-          file = fileID,
-          append = TRUE
+    unique_rows_html <- character(nrow(y$multilocus))
+    for (k in 1:nrow(y$multilocus)) {
+      matchRow <- if (!is.null(y$metaData)) {
+        c(
+          paste0("<a href=\"#", y$index[k], "\">Jump</a>"),
+          paste0("<a name=\"back_", y$index[k], "\">", y$index[k], "</a>"),
+          y$metaData[k],
+          y$multilocus[k, ],
+          y$uniqueType[k]
         )
-
-        ## Content above header names
-        cat("<div class=\"amGridUpperPanel\">",
-            file = fileID,
-            append = TRUE)
-        cat(paste(
-          c(
-            "<a name=\"",
-            y[[i]]$focal$index,
-            "\"><span style=\"font-size:medium;\">(Cluster ",
-            i,
-            " of ",
-            length(y),
-            ")</span></a>",
-            "<br><a href=\"#back_",
-            y[[i]]$focal$index,
-            "\">Jump up</a><br></div>"
-          ),
-          collapse = ""
-        ),
-        file = fileID,
-        append = TRUE)
-
-
-        ## Header names
-        cat("<div class=\"amGridMiddlePanel\">\n",
-            file = fileID,
-            append = TRUE)
-        cat(
-          "<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n",
-          file = fileID,
-          append = TRUE
+      } else {
+        c(
+          paste0("<a href=\"#", y$index[k], "\">Jump</a>"),
+          paste0("<a name=\"back_", y$index[k], "\">", y$index[k], "</a>"),
+          y$multilocus[k, ],
+          y$uniqueType[k]
         )
-        cat("<tr class=\"amTableHeader\">\n",
-            file = fileID,
-            append = TRUE)
-        if (!is.null(y[[i]]$focal$metaData))
-          headerNames <-
-          c("", "", "", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
+      }
+      unique_rows_html[k] <- paste0(
+        "<tr onmouseout=\"this.style.cssText='background-color:none;';\" onmouseover=\"this.style.cssText='background-color:#E0FFFF';\">\n",
+        paste0("<td><div>", matchRow, "</div></td>\n", collapse = ""),
+        "</tr>\n"
+      )
+    }
+
+    cat(
+      paste0(unique_rows_html, collapse = ""),
+      "</table></div><div class=\"amGridLowerPanel\"><span>There were ",
+      nrow(y$multilocus),
+      " unique genotypes identified using the parameters supplied.</span></div></td></tr></table><br><br>\n",
+      file = fileID,
+      sep = "",
+      append = TRUE
+    )
+
+    generate_group_html <- function(data_sub, type_label, cell_label) {
+      if (length(data_sub) == 0)
+        return("")
+      out_blocks <- character(length(data_sub))
+
+      for (i in 1:length(data_sub)) {
+        headerNames <- if (!is.null(data_sub[[i]]$focal$metaData))
+          c("", "", dimnames(data_sub[[i]]$focal$multilocus)[[2]], "Score")
         else
-          headerNames <-
-          c("", "", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
-        sapply(headerNames, function(j)
-          cat(
-            paste(
-              "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
-              j,
-              "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
-              sep = ""
-            ),
-            file = fileID,
-            append = TRUE
-          ))
-        cat("</tr>\n", file = fileID, append = TRUE)
+          c("", dimnames(data_sub[[i]]$focal$multilocus)[[2]], "Score")
+        headerTDs <- paste0(
+          "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
+          headerNames,
+          "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
+          collapse = ""
+        )
 
-        ## Content of tables
-        cat("<tr>\n", file = fileID, append = TRUE)
-
-        ## Focal genotype row
-        if (!is.null(y[[i]]$focal$metaData)) {
-          focalRow <-
-            c("CONSENSUS",
-              y[[i]]$focal$index,
-              y[[i]]$focal$metaData,
-              y[[i]]$focal$multilocus,
-              "")
-          focalFlags <- c(1, 1, 1, y[[i]]$focal$flags[1, ], 1)
+        if (!is.null(data_sub[[i]]$focal$metaData)) {
+          focalRow <- c(
+            cell_label,
+            data_sub[[i]]$focal$index,
+            data_sub[[i]]$focal$metaData,
+            data_sub[[i]]$focal$multilocus,
+            ""
+          )
+          focalFlags <- c(1, 1, 1, data_sub[[i]]$focal$flags[1, ], 1)
         } else {
-          focalRow <-
-            c("CONSENSUS", y[[i]]$focal$index, y[[i]]$focal$multilocus, "")
-          focalFlags <- c(1, 1, y[[i]]$focal$flags[1, ], 1)
+          focalRow <- c(cell_label,
+                        data_sub[[i]]$focal$index,
+                        data_sub[[i]]$focal$multilocus,
+                        "")
+          focalFlags <- c(1, 1, data_sub[[i]]$focal$flags[1, ], 1)
         }
-        focalRowHTML <- "<tr>"
-        for (m in 1:length(focalRow)) {
-          if (focalFlags[m] == 3) {
-            focalRowHTML <-
-              paste(
-                focalRowHTML,
-                "<td class=\"amTableSelectRow\"><div class=\"amInterpolatedAllele\">",
-                focalRow[m],
-                "</div></td>",
-                sep = ""
-              )
-          } else {
-            focalRowHTML <-
-              paste(
-                focalRowHTML,
-                "<td class=\"amTableSelectRow\"><div>",
-                focalRow[m],
-                "</div></td>",
-                sep = ""
-              )
-          }
-        }
-        focalRowHTML <- paste(focalRowHTML, "</tr>\n")
-        cat(focalRowHTML, file = fileID, append = TRUE)
 
+        fcells <- character(length(focalRow))
+        f_3 <- focalFlags == 3
+        fcells[f_3] <- paste0(
+          "<td class=\"amTableSelectRow\"><div class=\"amInterpolatedAllele\">",
+          focalRow[f_3],
+          "</div></td>"
+        )
+        fcells[!f_3] <- paste0("<td class=\"amTableSelectRow\"><div>",
+                               focalRow[!f_3],
+                               "</div></td>")
+        f_row_text <- paste0("<tr>", paste0(fcells, collapse = ""), "</tr>\n")
 
-        ## Matching genotype rows
-        for (k in 1:nrow(y[[i]]$match$multilocus)) {
-          if (!is.null(y[[i]]$focal$metaData)) {
-            matchRow <-
-              c(
-                "MEMBER",
-                y[[i]]$match$index[k],
-                y[[i]]$match$metaData[k],
-                y[[i]]$match$multilocus[k, ],
-                y[[i]]$match$score[k]
+        m_rows_text <- ""
+        num_m <- nrow(data_sub[[i]]$match$multilocus)
+        if (num_m > 0) {
+          m_lines <- character(num_m)
+          for (k in 1:num_m) {
+            if (!is.null(data_sub[[i]]$focal$metaData)) {
+              matchRow <- c(
+                if (cell_label == "CONSENSUS")
+                  "MEMBER"
+                else
+                  "CLOSEST",
+                data_sub[[i]]$match$index[k],
+                data_sub[[i]]$match$metaData[k],
+                data_sub[[i]]$match$multilocus[k, ],
+                data_sub[[i]]$match$score[k]
               )
-            matchFlags <-
-              c(1, 1, 1, y[[i]]$match$flags[k, ], 1)
-          } else {
-            matchRow <-
-              c("MEMBER",
-                y[[i]]$match$index[k],
-                y[[i]]$match$multilocus[k, ],
-                y[[i]]$match$score[k])
-            matchFlags <-
-              c(1, 1, y[[i]]$match$flags[k, ], 1)
-          }
-          matchRowHTML <- "<tr>"
-          for (m in 1:length(matchRow)) {
-            if (matchFlags[m] == 1) {
-              matchRowHTML <-
-                paste(matchRowHTML,
-                      "<td><div>",
-                      matchRow[m],
-                      "</div></td>",
-                      sep = "")
-            } else if (matchFlags[m] == 0) {
-              matchRowHTML <-
-                paste(
-                  matchRowHTML,
-                  "<td><div class=\"amMismatchAllele\">",
-                  matchRow[m],
-                  "</div></td>",
-                  sep = ""
-                )
-            } else if (matchFlags[m] == 2) {
-              matchRowHTML <-
-                paste(
-                  matchRowHTML,
-                  "<td><div class=\"amMissingAllele\">",
-                  matchRow[m],
-                  "</div></td>",
-                  sep = ""
-                )
+              matchFlags <- c(1, 1, 1, data_sub[[i]]$match$flags[k, ], 1)
+            } else {
+              matchRow <- c(
+                if (cell_label == "CONSENSUS")
+                  "MEMBER"
+                else
+                  "CLOSEST",
+                data_sub[[i]]$match$index[k],
+                data_sub[[i]]$match$multilocus[k, ],
+                data_sub[[i]]$match$score[k]
+              )
+              matchFlags <- c(1, 1, data_sub[[i]]$match$flags[k, ], 1)
             }
-          }
-          matchRowHTML <- paste(matchRowHTML, "</tr>\n")
-          cat(matchRowHTML, file = fileID, append = TRUE)
 
+            cells <- character(length(matchRow))
+            cells[matchFlags == 1] <- paste0("<td><div>", matchRow[matchFlags == 1], "</div></td>")
+            cells[matchFlags == 0] <- paste0("<td><div class=\"amMismatchAllele\">",
+                                             matchRow[matchFlags == 0],
+                                             "</div></td>")
+            cells[matchFlags == 2] <- paste0("<td><div class=\"amMissingAllele\">",
+                                             matchRow[matchFlags == 2],
+                                             "</div></td>")
+            m_lines[k] <- paste0("<tr>", paste0(cells, collapse = ""), "</tr>\n")
+          }
+          m_rows_text <- paste0(m_lines, collapse = "")
         }
 
-
-        ## End of content tables
-        cat("</table></div>", file = fileID, append = TRUE)
-
-        ## Content below header names
-        cat("<div class=\"amGridLowerPanel\">",
-            file = fileID,
-            append = TRUE)
-
-        if ((y[[i]]$match$perfect == 0) &&
-            (y[[i]]$match$partial == 0)) {
-          cat("<span>No matches found.</span>",
-              file = fileID,
-              append = TRUE)
-        } else {
-          cat(paste(
-            c(
+        footer_info <- if (cell_label == "CONSENSUS") {
+          if ((data_sub[[i]]$match$perfect == 0) &&
+              (data_sub[[i]]$match$partial == 0))
+            "<span>No matches found.</span>"
+          else
+            paste0(
               "<span>",
-              (y[[i]]$match$perfect),
-              " perfect matches found.  ",
-              y[[i]]$match$partial,
+              data_sub[[i]]$match$perfect,
+              " perfect matches found. ",
+              data_sub[[i]]$match$partial,
               " partial matches found.</span>"
-            ),
-            collapse = ""
-          ),
-          file = fileID,
-          append = TRUE)
-        }
-        cat("</div>", file = fileID, append = TRUE)
-        cat("</td></tr></table>",
-            file = fileID,
-            append = TRUE)
-        cat("<br><br>", file = fileID, append = TRUE)
-      }
-    }
-
-    ## Singleton genotypes
-    y <- x$singletons
-    if (length(y) > 0) {
-      ## Do tables for each cluster
-      for (i in 1:length(y)) {
-        ## Table header
-        cat(
-          "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-          file = fileID,
-          append = TRUE
-        )
-
-        ## Content above header names
-        cat("<div class=\"amGridUpperPanel\">",
-            file = fileID,
-            append = TRUE)
-        cat(paste(
-          c(
-            "<a name=\"",
-            y[[i]]$focal$index,
-            "\"><span style=\"font-size:medium;\">(Singleton ",
-            i,
-            " of ",
-            length(y),
-            ")</span></a>",
-            "<br><a href=\"#back_",
-            y[[i]]$focal$index,
-            "\">Jump up</a><br></div>"
-          ),
-          collapse = ""
-        ),
-        file = fileID,
-        append = TRUE)
-
-
-        ## Header names
-        cat("<div class=\"amGridMiddlePanel\">\n",
-            file = fileID,
-            append = TRUE)
-        cat(
-          "<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n",
-          file = fileID,
-          append = TRUE
-        )
-        cat("<tr class=\"amTableHeader\">\n",
-            file = fileID,
-            append = TRUE)
-        if (!is.null(y[[i]]$focal$metaData))
-          headerNames <-
-          c("", "", "", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
-        else
-          headerNames <-
-          c("", "", dimnames(y[[i]]$focal$multilocus)[[2]], "Score")
-        sapply(headerNames, function(j)
-          cat(
-            paste(
-              "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
-              j,
-              "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
-              sep = ""
-            ),
-            file = fileID,
-            append = TRUE
-          ))
-        cat("</tr>\n", file = fileID, append = TRUE)
-
-        ## Content of tables
-        cat("<tr>\n", file = fileID, append = TRUE)
-
-        ## Focal genotype row
-        if (!is.null(y[[i]]$focal$metaData)) {
-          focalRow <-
-            c("SINGLETON",
-              y[[i]]$focal$index,
-              y[[i]]$focal$metaData,
-              y[[i]]$focal$multilocus,
-              "")
-          focalFlags <- c(1, 1, 1, y[[i]]$focal$flags[1, ], 1)
+            )
         } else {
-          focalRow <-
-            c("SINGLETON", y[[i]]$focal$index, y[[i]]$focal$multilocus, "")
-          focalFlags <- c(1, 1, y[[i]]$focal$flags[1, ], 1)
-        }
-        focalRowHTML <- "<tr>"
-        for (m in 1:length(focalRow)) {
-          if (focalFlags[m] == 3) {
-            focalRowHTML <-
-              paste(
-                focalRowHTML,
-                "<td class=\"amTableSelectRow\"><div class=\"amInterpolateAllele\">",
-                focalRow[m],
-                "</div></td>",
-                sep = ""
-              )
-          } else {
-            focalRowHTML <-
-              paste(
-                focalRowHTML,
-                "<td class=\"amTableSelectRow\"><div>",
-                focalRow[m],
-                "</div></td>",
-                sep = ""
-              )
-          }
-        }
-        focalRowHTML <- paste(focalRowHTML, "</tr>\n")
-        cat(focalRowHTML, file = fileID, append = TRUE)
-
-
-        ## Matching genotype rows
-        for (k in 1:nrow(y[[i]]$match$multilocus)) {
-          if (!is.null(y[[i]]$focal$metaData)) {
-            matchRow <-
-              c(
-                "CLOSEST",
-                y[[i]]$match$index[k],
-                y[[i]]$match$metaData[k],
-                y[[i]]$match$multilocus[k, ],
-                y[[i]]$match$score[k]
-              )
-            matchFlags <-
-              c(1, 1, 1, y[[i]]$match$flags[k, ], 1)
-          } else {
-            matchRow <-
-              c("CLOSEST",
-                y[[i]]$match$index[k],
-                y[[i]]$match$multilocus[k, ],
-                y[[i]]$match$score[k])
-            matchFlags <-
-              c(1, 1, y[[i]]$match$flags[k, ], 1)
-          }
-          matchRowHTML <- "<tr>"
-          for (m in 1:length(matchRow)) {
-            if (matchFlags[m] == 1) {
-              matchRowHTML <-
-                paste(matchRowHTML,
-                      "<td><div>",
-                      matchRow[m],
-                      "</div></td>",
-                      sep = "")
-            } else if (matchFlags[m] == 0) {
-              matchRowHTML <-
-                paste(
-                  matchRowHTML,
-                  "<td><div class=\"amMismatchAllele\">",
-                  matchRow[m],
-                  "</div></td>",
-                  sep = ""
-                )
-            } else if (matchFlags[m] == 2) {
-              matchRowHTML <-
-                paste(
-                  matchRowHTML,
-                  "<td><div class=\"amMissingAllele\">",
-                  matchRow[m],
-                  "</div></td>",
-                  sep = ""
-                )
-            }
-          }
-          matchRowHTML <- paste(matchRowHTML, "</tr>\n")
-          cat(matchRowHTML, file = fileID, append = TRUE)
+          "<span>Closest match to singleton shown for diagnostic purposes</span>"
         }
 
-
-        ## End of content tables
-        cat("</table></div>", file = fileID, append = TRUE)
-
-        ## Content below header names
-        cat("<div class=\"amGridLowerPanel\">",
-            file = fileID,
-            append = TRUE)
-
-        cat(paste(
-          c(
-            "<span>Closest match to singleton shown for diagnostic purposes</span>"
-          ),
-          collapse = ""
-        ),
-        file = fileID,
-        append = TRUE)
-
-        cat("</div>", file = fileID, append = TRUE)
-        cat("</td></tr></table>",
-            file = fileID,
-            append = TRUE)
-        cat("<br><br>", file = fileID, append = TRUE)
+        out_blocks[i] <- paste0(
+          "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\"><div class=\"amGridUpperPanel\"><a name=\"",
+          data_sub[[i]]$focal$index,
+          "\"><span style=\"font-size:medium;\">(",
+          type_label,
+          " ",
+          i,
+          " of ",
+          length(data_sub),
+          ")</span></a><br><a href=\"#back_",
+          data_sub[[i]]$focal$index,
+          "\">Jump up</a><br></div><div class=\"amGridMiddlePanel\">\n<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n<tr class=\"amTableHeader\">\n",
+          headerTDs,
+          "</tr>\n<tr>\n",
+          f_row_text,
+          m_rows_text,
+          "</table></div><div class=\"amGridLowerPanel\">",
+          footer_info,
+          "</div></td></tr></table><br><br>\n"
+        )
       }
+      return(paste0(out_blocks, collapse = ""))
     }
 
+    cat(
+      generate_group_html(x$cluster, "Cluster", "CONSENSUS"),
+      file = fileID,
+      append = TRUE
+    )
+    cat(
+      generate_group_html(x$singletons, "Singleton", "SINGLETON"),
+      file = fileID,
+      append = TRUE
+    )
 
-    ## Page-wide
     cat(
-      "<span style=\"font-size:x-small;\">Generated by allelematch:  an R package<br></span>",
+      "<span style=\"font-size:x-small;\">Generated by allelematch: an R package<br></span><span style=\"font-size:x-small;\">To reference this analysis please use citation(\"allelematch\")<br><br></span></div>\n</body></html>",
       file = fileID,
+      sep = "",
       append = TRUE
     )
-    cat(
-      "<span style=\"font-size:x-small;\">To reference this analysis please use citation(\"allelematch\")<br><br></span>",
-      file = fileID,
-      append = TRUE
-    )
-    cat("</div>", file = fileID, append = TRUE)
-    cat("</body></html>", file = fileID, append = TRUE)
     close(fileID)
 
-    ## If htmlFile is not given, assume that this is being run
-    ## for a quick view, therefore open produced html file in browser
-    ## Also take this opportunity to clean up temp folder, if required
     if (usingTmpFile) {
       cat("Opening HTML file (",
           htmlFile,
           ") in default browser...\n",
           sep = "")
       utils::browseURL(htmlFile)
-      if (htmlFilePath != ".") {
-        oldTmpFiles <- Sys.glob(paste(htmlFilePath, "\\am*.htm", sep = ""))
-        if (length(oldTmpFiles) > 0) {
-          deleteFiles <-
-            file.remove(oldTmpFiles[sapply(file.info(Sys.glob(
-              paste(htmlFilePath, "\\am*.htm", sep = "")
-            ))$ctime, function(x)
-              difftime(Sys.time(), x, units = "hours") > 24)])
-          if (sum(deleteFiles) > 0)
-            cat(
-              "Deleting allelematch HTML output older than 24 hours from temporary folder...\n"
-            )
-        }
-      }
+      oldTmpFiles <- Sys.glob(file.path(htmlFilePath, "am*.htm*"))
+      if (length(oldTmpFiles) > 0)
+        suppressWarnings(file.remove(oldTmpFiles))
     }
   }
 
@@ -3390,442 +2257,228 @@ amHTML.amUnique <-
   function(x,
            htmlFile = NULL,
            htmlCSS = amCSSForHTML()) {
-    if (!inherits(x, "amUnique")) {
-      stop("allelematch:  this function requires an \"amUnique\" object",
+    if (!inherits(x, "amUnique"))
+      stop("allelematch: this function requires an \"amUnique\" object",
            call. = FALSE)
-    }
 
     if (is.null(htmlFile)) {
-      if (file.exists(Sys.getenv("TMP"))) {
-        htmlFilePath <- Sys.getenv("TMP")
-      } else if (file.exists(Sys.getenv("R_USER"))) {
-        htmlFilePath <- Sys.getenv("R_USER")
-      } else {
-        htmlFilePath <- "."
-      }
-      htmlFile <-
-        paste(htmlFilePath,
-              "\\",
-              class(x),
-              "_",
-              paste(sample(c(LETTERS[1:26], 0:9))[1:8], collapse = ""),
-              ".htm",
-              sep = "")
-
+      htmlFilePath <- tempdir()
+      htmlFile <- file.path(htmlFilePath, "amUnique.html")
       usingTmpFile <- TRUE
     } else {
       usingTmpFile <- FALSE
     }
 
-    fileID <- file(htmlFile, open = "wt")
+    fileID <- file(htmlFile, "w")
 
-    ## Open page with correct HTML header
     cat(
-      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n
-         <html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'><head>\n
-        <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></meta>\n",
-      file = fileID
-    )
-
-    ## Title of page
-    cat(paste(
-      c("<title>allelematch: ", class(x), "() output</title>"),
-      collapse = ""
-    ), file = fileID, append = TRUE)
-
-    ## Add CSS
-    cat(paste(
-      c("<style type=\"text/css\">", htmlCSS, "</style>"),
-      collapse = "\n"
-    ),
-    file = fileID,
-    append = TRUE)
-    cat("</head><body>", file = fileID, append = TRUE)
-
-    ## Page-wide DIV
-    cat(
-      "<div style=\"margin-left:5%; margin-right:5%\">",
-      file = fileID,
-      append = TRUE
-    )
-
-    ## Page title area
-    cat(
-      "<br><table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-      file = fileID,
-      append = TRUE
-    )
-    cat("<div class=\"amGridUpperPanel\">",
-        file = fileID,
-        append = TRUE)
-    cat("<div style=\"font-size:x-small;\"><table>",
-        file = fileID,
-        append = TRUE)
-    cat(
+      "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+      "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en' lang='en'><head>\n",
+      "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"></meta>\n",
+      "<title>allelematch: ",
+      class(x),
+      "() output</title>\n",
+      paste0(
+        c("<style type=\"text/css\">", htmlCSS, "</style>"),
+        collapse = "\n"
+      ),
+      "\n",
+      "</head><body>\n<div style=\"margin-left:5%; margin-right:5%\">\n",
+      "<br><table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">\n<div class=\"amGridUpperPanel\">\n<div style=\"font-size:x-small;\"><table>\n",
       "<tr><td style=\"width:400px;\"><span style=\"font-size:20px;\">allelematch<br>unique analysis</span><br><br></td></tr>\n",
       file = fileID,
-      append = TRUE
+      sep = ""
     )
 
-
-
     if (inherits(x, "amUnique")) {
-      headerHTML <-  matrix("", 14, 2)
+      headerHTML <- matrix("", 14, 2)
       headerHTML[1, ] <- c("\nunique N=", x$focalDatasetN)
       headerHTML[2, ] <- c("samples N=", x$comparisonDatasetN)
-      headerHTML[3, ] <-
-        c("<br>loci N=", length(x$alleleFreq$loci))
-      headerHTML[4, ] <-
-        c("locus names: ", paste(sapply(x$alleleFreq$loci, function(x)
-          x$name), collapse = ", "))
-      headerHTML[5, ] <-
-        c("<br>missing data represented by: ", x$missingCode)
-      headerHTML[6, ] <-
-        c("clustered genotypes consensus method: ", x$consensusMethod)
-      headerHTML[7, ] <-
+      headerHTML[3, ] <- c("<br>loci N=", length(x$alleleFreq$loci))
+      headerHTML[4, ] <- c("locus names: ", paste(sapply(x$alleleFreq$loci, function(z)
+        z$name), collapse = ", "))
+      headerHTML[5, ] <- c("<br>missing data represented by: ", x$missingCode)
+      headerHTML[6, ] <- c("clustered genotypes consensus method: ", x$consensusMethod)
+      headerHTML[7, ] <- c(
+        "Psib calculated for: ",
+        ifelse(
+          x$doPsib != "all",
+          "samples with no mismatches",
+          "all samples (mismatches treated as missing data)"
+        )
+      )
+      headerHTML[8, ] <- c(
+        "<br>alleleMismatch (m-hat; maximum number of mismatching alleles): ",
+        round(x$alleleMismatch, 2)
+      )
+      headerHTML[9, ] <- c("cutHeight (d-hat; dynamic tree cutting height): ",
+                           round(x$cutHeight, 3))
+      headerHTML[10, ] <- c(
+        "matchThreshold (s-hat; lowest matching score returned): ",
+        round(x$matchThreshold, 3)
+      )
+      headerHTML[11, ] <- if (x$numUnclassified > 0)
         c(
-          "Psib calculated for: ",
-          ifelse(
-            x$doPsib != "all",
-            "samples with no mismatches",
-            "all samples (mismatches treated as missing data)"
+          "<br>unclassified N=",
+          paste0(
+            "<span style=\"color:red;\">",
+            x$numUnclassified,
+            "</span>"
           )
         )
-      headerHTML[8, ] <-
-        c(
-          "<br>alleleMismatch (m-hat; maximum number of mismatching alleles): ",
-          round(x$alleleMismatch, 2)
-        )
-      headerHTML[9, ] <-
-        c("cutHeight (d-hat; dynamic tree cutting height): ",
-          round(x$cutHeight, 3))
-      headerHTML[10, ] <-
-        c(
-          "matchThreshold (s-hat; lowest matching score returned): ",
-          round(x$matchThreshold, 3)
-        )
-      if (x$numUnclassified > 0) {
-        headerHTML[11, ] <-
-          c(
-            "<span style=\"color:red;\"><br>unclassified (samples that were not classified) N=</span>",
-            paste(
-              "<span style=\"color:red;\">",
-              x$numUnclassified,
-              "</span>",
-              sep = ""
-            )
-          )
-      } else {
-        headerHTML[11, ] <-
-          c("<br>unclassified (samples that were not classified) N=",
-            x$numUnclassified)
-      }
-      headerHTML[12, ] <-
-        c(
-          "multipleMatch (samples that match more than one unique genotype) N=",
-          x$numMultipleMatches
-        )
-      headerHTML[13, ] <-
-        c(
-          "<br>Note: Unique genotypes are determined based on clustering of their scores followed by a dynamic tree cutting procedure (see supplementary documentation).",
-          "  Psib appears for reference purposes and is not used to determine unique genotypes.  It is calculated using allele frequencies in the unique genotype set."
-        )
+      else
+        c("<br>unclassified N=", x$numUnclassified)
+      headerHTML[12, ] <- c("multipleMatch N=", x$numMultipleMatches)
+      headerHTML[13, ] <- c(
+        "<br>Note: Unique genotypes are determined based on clustering of scores.",
+        " Psib appears for reference purposes."
+      )
       headerHTML[14, ] <- c("<br>summary generated: ", date())
     }
 
-    cat(apply(headerHTML, 1, function(x)
-      paste("<tr><td><b>", x[1], "</b><em>", x[2], "</em></td></tr>\n", sep =
-              "")),
-      file = fileID,
-      append = TRUE)
     cat(
+      paste0(
+        "<tr><td><b>",
+        headerHTML[, 1],
+        "</b><em>",
+        headerHTML[, 2],
+        "</em></td></tr>\n",
+        collapse = ""
+      ),
       "</table></div></div></td></tr></table><br><br>\n",
       file = fileID,
+      sep = "",
       append = TRUE
     )
 
-
-    ## Unique Genotypes
     y <- x$unique
-    ## Table header
-    cat(
-      "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-      file = fileID,
-      append = TRUE
-    )
-
-    ## Content above header names
-    cat("<div class=\"amGridUpperPanel\">",
-        file = fileID,
-        append = TRUE)
-    cat(paste(
-      c(
-        "<span style=\"font-size:medium;\">Unique genotypes</span></div>"
-      ),
-      collapse = ""
-    ), file = fileID, append = TRUE)
-
-    ## Header names
-    cat("<div class=\"amGridMiddlePanel\">\n",
-        file = fileID,
-        append = TRUE)
-    cat(
-      "<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n",
-      file = fileID,
-      append = TRUE
-    )
-    cat("<tr class=\"amTableHeader\">\n",
-        file = fileID,
-        append = TRUE)
-    if (!is.null(y$metaData))
-      headerNames <-
+    headerNames <- if (!is.null(y$metaData))
       c("", "", "", dimnames(y$multilocus)[[2]], "Psib", "Type")
     else
-      headerNames <-
       c("", "", dimnames(y$multilocus)[[2]], "Psib", "Type")
-    sapply(headerNames, function(j)
-      cat(
-        paste(
-          "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
-          j,
-          "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
-          sep = ""
-        ),
-        file = fileID,
-        append = TRUE
-      ))
-    cat("</tr>\n", file = fileID, append = TRUE)
+    headerTDs <- paste0(
+      "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
+      headerNames,
+      "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
+      collapse = ""
+    )
 
-    ## Unique genotype rows
+    cat(
+      "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\"><div class=\"amGridUpperPanel\"><span style=\"font-size:medium;\">Unique genotypes</span></div>",
+      "<div class=\"amGridMiddlePanel\">\n<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n<tr class=\"amTableHeader\">\n",
+      headerTDs,
+      "</tr>\n",
+      file = fileID,
+      sep = "",
+      append = TRUE
+    )
+
+    unique_rows_html <- character(nrow(y$multilocus))
     for (k in 1:nrow(y$multilocus)) {
       psib <- signif(y$psib[k], 2)
-      if (is.na(psib)) {
-        psib <- "&nbsp; &nbsp; ---"
-      } else if (psib < 0.00001) {
-        psib <- "<0.00001"
+      psib <- if (is.na(psib))
+        "&nbsp; &nbsp; ---"
+      else if (psib < 0.00001)
+        "<0.00001"
+      else
+        format(psib, scientific = FALSE)
+
+      matchRow <- if (!is.null(y$metaData)) {
+        c(
+          paste0("<a href=\"#", y$index[k], "\">Jump</a>"),
+          y$index[k],
+          y$metaData[k],
+          y$multilocus[k, ],
+          psib,
+          y$rowFlag[k]
+        )
       } else {
-        psib <- format(psib, scientific = FALSE)
+        c(
+          paste0("<a href=\"#", y$index[k], "\">Jump</a>"),
+          y$index[k],
+          y$multilocus[k, ],
+          psib,
+          y$rowFlag[k]
+        )
       }
+      unique_rows_html[k] <- paste0(
+        "<tr onmouseout=\"this.style.cssText='background-color:none;';\" onmouseover=\"this.style.cssText='background-color:#E0FFFF';\">\n",
+        paste0("<td><div>", matchRow, "</div></td>\n", collapse = ""),
+        "</tr>\n"
+      )
+    }
+
+    cat(
+      paste0(unique_rows_html, collapse = ""),
+      "</table></div><div class=\"amGridLowerPanel\"><span>There were ",
+      nrow(y$multilocus),
+      " unique genotypes identified using the parameters supplied.</span></div></td></tr></table><br><br>\n",
+      file = fileID,
+      sep = "",
+      append = TRUE
+    )
+
+    if (!is.null(x$unclassified)) {
+      y <- x$unclassified
+      headerNames <- if (!is.null(y$metaData))
+        c("", "", "", dimnames(y$multilocus)[[2]], "Type")
+      else
+        c("", "", dimnames(y$multilocus)[[2]], "Type")
+      headerTDs <- paste0(
+        "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
+        headerNames,
+        "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
+        collapse = ""
+      )
+
       cat(
-        "<tr onmouseout=\"this.style.cssText='background-color:none;';\" onmouseover=\"this.style.cssText='background-color:#E0FFFF';\" style=\"\">\n",
+        "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\"><div class=\"amGridUpperPanel\"><span style=\"font-size:medium; color:red; font-weight:bold;\">Unclassified samples</span></div><div class=\"amGridMiddlePanel\">\n<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n<tr class=\"amTableHeader\">\n",
+        headerTDs,
+        "</tr>\n",
         file = fileID,
+        sep = "",
         append = TRUE
       )
-      if (!is.null(y$metaData)) {
-        matchRow <-
+
+      unclass_rows_html <- character(nrow(y$multilocus))
+      for (k in 1:nrow(y$multilocus)) {
+        matchRow <- if (!is.null(y$metaData)) {
           c(
-            paste("<a href=\"#", y$index[k], "\">Jump</a>", sep = ""),
+            "<span style=\"color:red; font-weight:bold;\">!!!</span>",
             y$index[k],
             y$metaData[k],
             y$multilocus[k, ],
-            psib,
-            y$rowFlag[k]
+            "UNCLASSIFIED"
           )
-      } else {
-        matchRow <-
+        } else {
           c(
-            paste("<a href=\"#", y$index[k], "\">Jump</a>", sep = ""),
+            "<span style=\"color:red; font-weight:bold;\">!!!</span>",
             y$index[k],
             y$multilocus[k, ],
-            psib,
-            y$rowFlag[k]
+            "UNCLASSIFIED"
           )
-      }
-      sapply(matchRow, function(j)
-        cat(
-          paste("<td><div>",
-                j,
-                "</div></td>\n", sep = ""),
-          file = fileID,
-          append = TRUE
-        ))
-      cat("</tr>\n", file = fileID, append = TRUE)
-    }
-
-    ## End of content tables
-    cat("</table></div>", file = fileID, append = TRUE)
-
-    ## Content below header names
-    cat("<div class=\"amGridLowerPanel\">",
-        file = fileID,
-        append = TRUE)
-    cat(paste(
-      c(
-        "<span>There were ",
-        nrow(y$multilocus),
-        " unique genotypes identified using the parameters supplied.</span>"
-      ),
-      collapse = ""
-    ), file = fileID, append = TRUE)
-    cat("</div>", file = fileID, append = TRUE)
-    cat("</td></tr></table>", file = fileID, append = TRUE)
-    cat("<br><br>", file = fileID, append = TRUE)
-
-
-    ## Unclassified genotypes
-    if (!is.null(x$unclassified)) {
-      y <- x$unclassified
-      ## Table header
-      cat(
-        "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-        file = fileID,
-        append = TRUE
-      )
-
-      ## Content above header names
-      cat("<div class=\"amGridUpperPanel\">",
-          file = fileID,
-          append = TRUE)
-      cat(paste(
-        c(
-          "<span style=\"font-size:medium; color:red; font-weight:bold;\">Unclassified samples</span></div>"
-        ),
-        collapse = ""
-      ),
-      file = fileID,
-      append = TRUE)
-
-      ## Header names
-      cat("<div class=\"amGridMiddlePanel\">\n",
-          file = fileID,
-          append = TRUE)
-      cat(
-        "<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n",
-        file = fileID,
-        append = TRUE
-      )
-      cat("<tr class=\"amTableHeader\">\n",
-          file = fileID,
-          append = TRUE)
-      if (!is.null(y$metaData))
-        headerNames <-
-        c("", "", "", dimnames(y$multilocus)[[2]], "Type")
-      else
-        headerNames <-
-        c("", "", dimnames(y$multilocus)[[2]], "Type")
-      sapply(headerNames, function(j)
-        cat(
-          paste(
-            "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
-            j,
-            "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
-            sep = ""
-          ),
-          file = fileID,
-          append = TRUE
-        ))
-      cat("</tr>\n", file = fileID, append = TRUE)
-
-      ## Not matched rows
-      for (k in 1:nrow(y$multilocus)) {
-        cat(
-          "<tr onmouseout=\"this.style.cssText='background-color:none;';\" onmouseover=\"this.style.cssText='background-color:#E0FFFF';\" style=\"\">\n",
-          file = fileID,
-          append = TRUE
-        )
-        if (!is.null(y$metaData)) {
-          matchRow <-
-            c(
-              paste(
-                "<span style=\"color:red; font-weight:bold;\">!!!</span>",
-                sep = ""
-              ),
-              y$index[k],
-              y$metaData[k],
-              y$multilocus[k, ],
-              "UNCLASSIFIED"
-            )
-        } else {
-          matchRow <-
-            c(
-              paste(
-                "<span style=\"color:red; font-weight:bold;\">!!!</span>",
-                sep = ""
-              ),
-              y$index[k],
-              y$multilocus[k, ],
-              "UNCLASSIFIED"
-            )
         }
-        sapply(matchRow, function(j)
-          cat(
-            paste("<td><div>",
-                  j,
-                  "</div></td>\n", sep = ""),
-            file = fileID,
-            append = TRUE
-          ))
-        cat("</tr>\n", file = fileID, append = TRUE)
+        unclass_rows_html[k] <- paste0(
+          "<tr onmouseout=\"this.style.cssText='background-color:none;';\" onmouseover=\"this.style.cssText='background-color:#E0FFFF';\">\n",
+          paste0("<td><div>", matchRow, "</div></td>\n", collapse = ""),
+          "</tr>\n"
+        )
       }
 
-      ## End of content tables
-      cat("</table></div>", file = fileID, append = TRUE)
-
-      ## Content below header names
-      cat("<div class=\"amGridLowerPanel\">",
-          file = fileID,
-          append = TRUE)
-      cat(paste(
-        c(
-          "<span>There were ",
-          nrow(y$multilocus),
-          " samples that were not classified using the parameters supplied.<br></span>
-                    <span style=\"color:red;\">Unclassified samples are often not sufficiently similar to match unique genotypes, and not sufficiently different to be declared unique themselves.
-                    <br>This is typically because of missing data.  Please see the supplementary documentation for more information.</span>"
-        ),
-        collapse = ""
-      ),
-      file = fileID,
-      append = TRUE)
-      cat("</div>", file = fileID, append = TRUE)
-      cat("</td></tr></table>", file = fileID, append = TRUE)
-      cat("<br><br>", file = fileID, append = TRUE)
+      cat(
+        paste0(unclass_rows_html, collapse = ""),
+        "</table></div><div class=\"amGridLowerPanel\"><span>There were ",
+        nrow(y$multilocus),
+        " samples that were not classified.</span></div></td></tr></table><br><br>\n",
+        file = fileID,
+        sep = "",
+        append = TRUE
+      )
     }
 
     y <- x$pairwise
-    ## Do tables for each focal genotype
     for (i in 1:length(y)) {
-      ## Table header
-      cat(
-        "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\">",
-        file = fileID,
-        append = TRUE
-      )
-
-      ## Content above header names
-      cat("<div class=\"amGridUpperPanel\">",
-          file = fileID,
-          append = TRUE)
-      cat(paste(
-        c(
-          "<a name=\"",
-          y[[i]]$focal$index,
-          "\"><span style=\"font-size:medium;\">Unique genotype (",
-          i,
-          " of ",
-          length(y),
-          ")</span></a></div>"
-        ),
-        collapse = ""
-      ),
-      file = fileID,
-      append = TRUE)
-
-
-      ## Header names
-      cat("<div class=\"amGridMiddlePanel\">\n",
-          file = fileID,
-          append = TRUE)
-      cat(
-        "<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n",
-        file = fileID,
-        append = TRUE
-      )
-      cat("<tr class=\"amTableHeader\">\n",
-          file = fileID,
-          append = TRUE)
-      if (!is.null(y[[i]]$focal$metaData))
-        headerNames <-
+      headerNames <- if (!is.null(y[[i]]$focal$metaData))
         c("",
           "",
           "",
@@ -3834,32 +2487,35 @@ amHTML.amUnique <-
           "Score",
           "Type")
       else
-        headerNames <-
         c("",
           "",
           dimnames(y[[i]]$focal$multilocus)[[2]],
           "Psib",
           "Score",
           "Type")
-      sapply(headerNames, function(j)
-        cat(
-          paste(
-            "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
-            j,
-            "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
-            sep = ""
-          ),
-          file = fileID,
-          append = TRUE
-        ))
-      cat("</tr>\n", file = fileID, append = TRUE)
+      headerTDs <- paste0(
+        "<td class=\"amPointer\"><table cellspacing=\"0\" class=\"amTableHeaderBtn\"><tr><td>",
+        headerNames,
+        "</td><td style=\"width:10px;\">&nbsp;</td></tr></table></td>\n",
+        collapse = ""
+      )
 
-      ## Content of tables
-      cat("<tr>\n", file = fileID, append = TRUE)
+      cat(
+        "<table cellspacing=\"0\" class=\"amGrid\"><tr><td class=\"amGridContent\"><div class=\"amGridUpperPanel\"><a name=\"",
+        y[[i]]$focal$index,
+        "\"><span style=\"font-size:medium;\">Unique genotype (",
+        i,
+        " of ",
+        length(y),
+        ")</span></a></div><div class=\"amGridMiddlePanel\">\n<table cellspacing=\"0\" class=\"amTable amTableSeparate\">\n<tr class=\"amTableHeader\">\n",
+        headerTDs,
+        "</tr>\n<tr>\n",
+        file = fileID,
+        sep = "",
+        append = TRUE
+      )
 
-      ## Focal genotype row
-      if (!is.null(y[[i]]$focal$metaData))
-        focalRow <-
+      focalRow <- if (!is.null(y[[i]]$focal$metaData))
         c(
           "",
           y[[i]]$focal$index,
@@ -3870,131 +2526,91 @@ amHTML.amUnique <-
           y[[i]]$focal$rowFlag
         )
       else
-        focalRow <-
         c("",
           y[[i]]$focal$index,
           y[[i]]$focal$multilocus,
           "",
           "",
           y[[i]]$focal$rowFlag)
-      sapply(focalRow, function(row)
-        cat(
-          paste(
-            "<td class=\"amTableSelectRow\"><div>",
-            row,
-            "</div></td>\n",
-            sep = ""
-          ),
-          file = fileID,
-          append = TRUE
-        ))
-      cat("</tr>\n", file = fileID, append = TRUE)
 
-      ## Matching genotype rows
-      for (k in 1:nrow(y[[i]]$match$multilocus)) {
-        psib <- signif(y[[i]]$match$psib[k], 2)
-        if (is.na(psib)) {
-          psib <- "&nbsp; &nbsp; ---"
-        } else if (psib < 0.00001) {
-          psib <- "<0.00001"
-        } else {
-          psib <- format(psib, scientific = FALSE)
-        }
+      cat(
+        paste0(
+          "<td class=\"amTableSelectRow\"><div>",
+          focalRow,
+          "</div></td>\n",
+          collapse = ""
+        ),
+        "</tr>\n",
+        file = fileID,
+        sep = "",
+        append = TRUE
+      )
 
-        if (!is.null(y[[i]]$focal$metaData)) {
-          if (y[[i]]$match$rowFlag[k] == "MULTIPLE_MATCH") {
-            matchRow <-
-              c(
-                "<span style=\"color:red; font-weight:bold;\">!!!</span>",
-                y[[i]]$match$index[k],
-                y[[i]]$match$metaData[k],
-                y[[i]]$match$multilocus[k, ],
-                psib,
-                y[[i]]$match$score[k],
-                "MULTIPLE_MATCH"
-              )
-            matchFlags <-
-              c(1, 1, 1, y[[i]]$match$flags[k, ], 1, 1, 1)
+      num_matches <- nrow(y[[i]]$match$multilocus)
+      if (num_matches > 0) {
+        match_rows_html <- character(num_matches)
+        for (k in 1:num_matches) {
+          psib <- signif(y[[i]]$match$psib[k], 2)
+          psib <- if (is.na(psib))
+            "&nbsp; &nbsp; ---"
+          else if (psib < 0.00001)
+            "<0.00001"
+          else
+            format(psib, scientific = FALSE)
+
+          is_multimatch <- y[[i]]$match$rowFlag[k] == "MULTIPLE_MATCH"
+          lead_flag <- if (is_multimatch)
+            "<span style=\"color:red; font-weight:bold;\">!!!</span>"
+          else
+            ""
+          type_lbl  <- if (is_multimatch)
+            "MULTIPLE_MATCH"
+          else
+            "MATCH"
+
+          if (!is.null(y[[i]]$focal$metaData)) {
+            matchRow <- c(
+              lead_flag,
+              y[[i]]$match$index[k],
+              y[[i]]$match$metaData[k],
+              y[[i]]$match$multilocus[k, ],
+              psib,
+              y[[i]]$match$score[k],
+              type_lbl
+            )
+            matchFlags <- c(1, 1, 1, y[[i]]$match$flags[k, ], 1, 1, 1)
           } else {
-            matchRow <-
-              c(
-                "",
-                y[[i]]$match$index[k],
-                y[[i]]$match$metaData[k],
-                y[[i]]$match$multilocus[k, ],
-                psib,
-                y[[i]]$match$score[k],
-                "MATCH"
-              )
-            matchFlags <-
-              c(1, 1, 1, y[[i]]$match$flags[k, ], 1, 1, 1)
+            matchRow <- c(
+              lead_flag,
+              y[[i]]$match$index[k],
+              y[[i]]$match$multilocus[k, ],
+              psib,
+              y[[i]]$match$score[k],
+              type_lbl
+            )
+            matchFlags <- c(1, 1, y[[i]]$match$flags[k, ], 1, 1, 1)
           }
-        } else {
-          if (y[[i]]$match$rowFlag[k] == "MULTIPLE_MATCH") {
-            matchRow <-
-              c(
-                "<span style=\"color:red; font-weight:bold;\">!!!</span>",
-                y[[i]]$match$index[k],
-                y[[i]]$match$multilocus[k, ],
-                psib,
-                y[[i]]$match$score[k],
-                "MULTIPLE_MATCH"
-              )
-            matchFlags <-
-              c(1, 1, y[[i]]$match$flags[k, ], 1, 1, 1)
-          } else {
-            matchRow <-
-              c("",
-                y[[i]]$match$index[k],
-                y[[i]]$match$multilocus[k, ],
-                psib,
-                y[[i]]$match$score[k],
-                "MATCH")
-            matchFlags <-
-              c(1, 1, y[[i]]$match$flags[k, ], 1, 1, 1)
-          }
+
+          cells <- character(length(matchRow))
+          cells[matchFlags == 1] <- paste0("<td><div>", matchRow[matchFlags == 1], "</div></td>")
+          cells[matchFlags == 0] <- paste0("<td><div class=\"amMismatchAllele\">",
+                                           matchRow[matchFlags == 0],
+                                           "</div></td>")
+          cells[matchFlags == 2] <- paste0("<td><div class=\"amMissingAllele\">",
+                                           matchRow[matchFlags == 2],
+                                           "</div></td>")
+          match_rows_html[k] <- paste0("<tr>", paste0(cells, collapse = ""), "</tr>\n")
         }
-        matchRowHTML <- "<tr>"
-        for (m in 1:length(matchRow)) {
-          if (matchFlags[m] == 1) {
-            matchRowHTML <-
-              paste(matchRowHTML,
-                    "<td><div>",
-                    matchRow[m],
-                    "</div></td>",
-                    sep = "")
-          } else if (matchFlags[m] == 0) {
-            matchRowHTML <-
-              paste(
-                matchRowHTML,
-                "<td><div class=\"amMismatchAllele\">",
-                matchRow[m],
-                "</div></td>",
-                sep = ""
-              )
-          } else if (matchFlags[m] == 2) {
-            matchRowHTML <-
-              paste(
-                matchRowHTML,
-                "<td><div class=\"amMissingAllele\">",
-                matchRow[m],
-                "</div></td>",
-                sep = ""
-              )
-          }
-        }
-        matchRowHTML <- paste(matchRowHTML, "</tr>\n")
-        cat(matchRowHTML, file = fileID, append = TRUE)
+        cat(paste0(match_rows_html, collapse = ""),
+            file = fileID,
+            append = TRUE)
       }
 
-
-      ## End of content tables
-      cat("</table></div>", file = fileID, append = TRUE)
-
-      ## Content below header names
-      cat("<div class=\"amGridLowerPanel\">",
-          file = fileID,
-          append = TRUE)
+      cat(
+        "</table></div><div class=\"amGridLowerPanel\">",
+        file = fileID,
+        append = TRUE
+      )
 
       if ((y[[i]]$match$perfect == 0) &&
           (y[[i]]$match$partial == 0)) {
@@ -4002,343 +2618,313 @@ amHTML.amUnique <-
             file = fileID,
             append = TRUE)
       } else {
-        if (any(y[[i]]$match$rowFlag == "MULTIPLE_MATCH")) {
-          multipleMatchMsg <-
-            "<br><span style=\"color:red\">multipleMatch samples, which match two or more unique genotypes, should be manually reviewed.  Please see supplementary documentation for more information</span>"
-        } else {
-          multipleMatchMsg <- ""
-        }
-        if (x$doPsib != "all") {
-          doPsibMsg <-
-            "<br>Psib is calculated for samples that have no mismatches.  Differences among samples are due to loci with missing data."
-        } else {
-          doPsibMsg <-
-            "<br>Psib is calculated for all samples.  Loci with one or both mismatching alleles are treated as missing data."
-        }
-
-        cat(paste(
-          c(
+        multipleMatchMsg <- if (any(y[[i]]$match$rowFlag == "MULTIPLE_MATCH"))
+          "<br><span style=\"color:red\">multipleMatch samples present</span>"
+        else
+          ""
+        doPsibMsg <- if (x$doPsib != "all")
+          "<br>Psib calculated for samples with no mismatches."
+        else
+          "<br>Psib calculated for all samples."
+        cat(
+          paste0(
             "<span>Unique genotype compared against ",
             x$comparisonDatasetN,
-            " samples, returning those with score>=",
+            " samples, returning score>=",
             round(x$matchThreshold, 3),
             multipleMatchMsg,
-            doPsibMsg
+            doPsibMsg,
+            "</span>"
           ),
-          collapse = ""
-        ),
-        file = fileID,
-        append = TRUE)
+          file = fileID,
+          sep = "",
+          append = TRUE
+        )
       }
-      cat("</div>", file = fileID, append = TRUE)
-      cat("</td></tr></table>", file = fileID, append = TRUE)
-      cat("<br><br>", file = fileID, append = TRUE)
+      cat("</div>\n</td></tr></table><br><br>\n",
+          file = fileID,
+          append = TRUE)
     }
 
-
-    ## Page-wide
     cat(
-      "<span style=\"font-size:x-small;\">Generated by allelematch:  an R package<br></span>",
+      "<span style=\"font-size:x-small;\">Generated by allelematch: an R package<br></span><span style=\"font-size:x-small;\">To reference this analysis please use citation(\"allelematch\")<br><br></span></div>\n</body></html>\n",
       file = fileID,
+      sep = "",
       append = TRUE
     )
-    cat(
-      "<span style=\"font-size:x-small;\">To reference this analysis please use citation(\"allelematch\")<br><br></span>",
-      file = fileID,
-      append = TRUE
-    )
-    cat("</div>", file = fileID, append = TRUE)
-    cat("</body></html>", file = fileID, append = TRUE)
     close(fileID)
 
-    ## If htmlFile is not given, assume that this is being run
-    ## for a quick view, therefore open produced html file in browser
-    ## Also take this opportunity to clean up temp folder, if required
     if (usingTmpFile) {
       cat("Opening HTML file (",
           htmlFile,
           ") in default browser...\n",
           sep = "")
       utils::browseURL(htmlFile)
-      if (htmlFilePath != ".") {
-        oldTmpFiles <- Sys.glob(paste(htmlFilePath, "\\am*.htm", sep = ""))
-        if (length(oldTmpFiles) > 0) {
-          deleteFiles <-
-            file.remove(oldTmpFiles[sapply(file.info(Sys.glob(
-              paste(htmlFilePath, "\\am*.htm", sep = "")
-            ))$ctime, function(x)
-              difftime(Sys.time(), x, units = "hours") > 24)])
-          if (sum(deleteFiles) > 0)
-            cat(
-              "Deleting allelematch HTML output older than 24 hours from temporary folder...\n"
-            )
-        }
-      }
+      oldTmpFiles <- Sys.glob(file.path(htmlFilePath, "am*.htm*"))
+      if (length(oldTmpFiles) > 0)
+        suppressWarnings(file.remove(oldTmpFiles))
     }
   }
 
 
 #### amCSV.amPairwise() ####
 amCSV.amPairwise <- function(x, csvFile) {
-  if (!inherits(x, "amPairwise")) {
-    stop("allelematch:  this function requires an \"amPairwise\" object",
+  if (!inherits(x, "amPairwise"))
+    stop("allelematch: this function requires an \"amPairwise\" object",
          call. = FALSE)
-  }
 
   y <- x$pairwise
+  has_metadata <- !is.null(y[[1]]$match$metaData)
+  match_list <- vector("list", length(y))
+  match_threshold_str <- as.character(x$matchThreshold)
 
-  ## Determine the names of columns
-  columnNames <- dimnames(y[[1]]$focal$multilocus)[[2]]
-  if (!is.null(y[[1]]$match$metaData)) {
-    columnNames <- c("comparisonMetaData", columnNames)
-  }
-
-  ## Add in other columns
-  columnNames <-
-    c(
-      "matchGroup",
-      "nMatchGroup",
-      "focalIndex",
-      "comparisonIndex",
-      "matchThreshold",
-      "score",
-      columnNames
-    )
-
-  ## Create empty matrix to hold data
-  csvTable <- matrix(NA, 1, length(columnNames))
-  dimnames(csvTable)[[2]] <- columnNames
   for (i in 1:length(y)) {
-    if (!is.null(y[[1]]$match$metaData)) {
-      thisMatch <- cbind(
-        matchGroup = i,
-        nMatchGroup = nrow(y[[i]]$match$multilocus),
-        focalIndex = y[[i]]$focal$index,
+    match_group_count <- nrow(y[[i]]$match$multilocus)
+    if (has_metadata) {
+      match_list[[i]] <- cbind(
+        matchGroup = rep(i, match_group_count),
+        nMatchGroup = rep(match_group_count, match_group_count),
+        focalIndex = rep(y[[i]]$focal$index, match_group_count),
         comparisonIndex = y[[i]]$match$index,
-        matchThreshold = as.character(x$matchThreshold),
+        matchThreshold = rep(match_threshold_str, match_group_count),
         score = y[[i]]$match$score,
         comparisonMetaData = y[[i]]$match$metaData,
         y[[i]]$match$multilocus
       )
     } else {
-      thisMatch <- cbind(
-        matchGroup = i,
-        nMatchGroup = nrow(y[[i]]$match$multilocus),
-        focalIndex = y[[i]]$focal$index,
+      match_list[[i]] <- cbind(
+        matchGroup = rep(i, match_group_count),
+        nMatchGroup = rep(match_group_count, match_group_count),
+        focalIndex = rep(y[[i]]$focal$index, match_group_count),
         comparisonIndex = y[[i]]$match$index,
-        matchThreshold = as.character(x$matchThreshold),
+        matchThreshold = rep(match_threshold_str, match_group_count),
         score = y[[i]]$match$score,
         y[[i]]$match$multilocus
       )
     }
-
-    csvTable <-
-      rbind(csvTable, thisMatch)
-
   }
-  csvTable <- csvTable[2:nrow(csvTable), ]
 
+  csvTable <- do.call(rbind, match_list)
+  if (is.null(dim(csvTable)))
+    csvTable <- matrix(csvTable,
+                       nrow = 1,
+                       dimnames = list(NULL, names(csvTable)))
   utils::write.csv(csvTable, file = csvFile, row.names = FALSE)
 }
 
 
 #### amCSV.amCluster() ####
 amCSV.amCluster <- function(x, csvFile) {
-  if (!inherits(x, "amCluster")) {
-    stop("allelematch:  this function requires an \"amCluster\" object",
+  if (!inherits(x, "amCluster"))
+    stop("allelematch: this function requires an \"amCluster\" object",
          call. = FALSE)
-  }
-
   y <- x$unique
-  if (!is.null(y$metaData)) {
-    csvTable <- cbind(index = y$index,
-                      metaData = y$metaData,
-                      y$multilocus)
-  } else {
-    csvTable <- cbind(index = y$index, y$multilocus)
-  }
-
+  csvTable <- if (!is.null(y$metaData))
+    data.frame(
+      index = as.character(y$index),
+      metaData = as.character(y$metaData),
+      y$multilocus,
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+  else
+    data.frame(
+      index = as.character(y$index),
+      y$multilocus,
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
   utils::write.csv(csvTable, file = csvFile, row.names = FALSE)
 }
 
 
 #### amCSV.amUnique() ####
 amCSV.amUnique <- function(x, csvFile, uniqueOnly = FALSE) {
-  if (!inherits(x, "amUnique")) {
-    stop("allelematch:  this function requires an \"amUnique\" object",
+  if (!inherits(x, "amUnique"))
+    stop("allelematch: this function requires an \"amUnique\" object",
          call. = FALSE)
-  }
 
   if (uniqueOnly) {
-    ## Pretend it's an amCluster object
     class(x) <- "amCluster"
     amCSV.amCluster(x, csvFile)
   } else {
-    ## Determine the names of columns
-    columnNames <-
-      dimnames(x$pairwise[[1]]$focal$multilocus)[[2]]
-    if (!is.null(x$pairwise[[1]]$match$metaData)) {
-      columnNames <- c("metaData", columnNames)
-    }
-
-    ## Add in other columns
-    columnNames <-
-      c(
-        "uniqueGroup",
-        "rowType",
-        "uniqueIndex",
-        "matchIndex",
-        "nUniqueGroup",
-        "alleleMismatch",
-        "matchThreshold",
-        "cutHeight",
-        "Psib",
-        "score",
-        columnNames
-      )
-
-    ## Create empty matrix to hold data
-    csvTable <- matrix(NA, 1, length(columnNames))
-    dimnames(csvTable)[[2]] <- columnNames
-
-    ## Unclassifieds...if there are any
-    ## If two or more unclassifieds then use cbind()
-    if (x$numUnclassified >= 2) {
-      y <- x$unclassified
-      unclassified <- cbind(
-        uniqueGroup = "",
-        rowType = "UNCLASSIFIED",
-        uniqueIndex = y$index,
-        matchIndex = "",
-        nUniqueGroup = "",
-        alleleMismatch = as.character(x$alleleMismatch),
-        matchThreshold = as.character(x$matchThreshold),
-        cutHeight = as.character(x$cutHeight),
-        Psib = "",
-        score = ""
-      )
-      if (!is.null(y$metaData)) {
-        unclassified <- cbind(unclassified,
-                              metaData = y$metaData,
-                              y$multilocus)
-      } else {
-        unclassified <- cbind(unclassified,
-                              y$multilocus)
-      }
-      csvTable <- rbind(csvTable, unclassified)
-    ## If only one unclassified use c()
-    } else if (x$numUnclassified == 1) {
-      y <- x$unclassified
-      unclassified <- c(
-        uniqueGroup = "",
-        rowType = "UNCLASSIFIED",
-        uniqueIndex = y$index,
-        matchIndex = "",
-        nUniqueGroup = "",
-        alleleMismatch = as.character(x$alleleMismatch),
-        matchThreshold = as.character(x$matchThreshold),
-        cutHeight = as.character(x$cutHeight),
-        Psib = "",
-        score = ""
-      )
-      if (!is.null(y$metaData)) {
-        unclassified <- c(unclassified,
-                          metaData = y$metaData,
-                          y$multilocus)
-      } else {
-        unclassified <- c(unclassified,
-                          y$multilocus)
-      }
-      csvTable <- rbind(csvTable, unclassified)
-    }
-
-
-    ## Unique genotype groups
     y <- x$pairwise
+    has_metadata <- !is.null(y[[1]]$match$metaData)
+    out_list <- vector("list", length(y) * 2 + 1)
+    list_idx <- 1
+
+    if (x$numUnclassified > 0) {
+      u <- x$unclassified
+      u_cnt <- nrow(u$multilocus)
+      u_df <- data.frame(
+        uniqueGroup = rep("", u_cnt),
+        rowType = rep("UNCLASSIFIED", u_cnt),
+        uniqueIndex = as.character(u$index),
+        matchIndex = rep("", u_cnt),
+        nUniqueGroup = rep("", u_cnt),
+        alleleMismatch = rep(as.character(x$alleleMismatch), u_cnt),
+        matchThreshold = rep(as.character(x$matchThreshold), u_cnt),
+        cutHeight = rep(as.character(x$cutHeight), u_cnt),
+        Psib = rep("", u_cnt),
+        score = rep("", u_cnt),
+        stringsAsFactors = FALSE
+      )
+      if (!is.null(u$metaData))
+        u_df$metaData <- as.character(u$metaData)
+      out_list[[list_idx]] <- cbind(u_df, u$multilocus)
+      list_idx <- list_idx + 1
+    }
+
+    mismatch_str <- as.character(x$alleleMismatch)
+    threshold_str <- as.character(x$matchThreshold)
+    cutheight_str <- as.character(x$cutHeight)
+
     for (i in 1:length(y)) {
-      ## Clean up some variables
       rowFlag <- y[[i]]$match$rowFlag
       rowFlag[rowFlag == ""] <- "MATCH"
       Psib <- y[[i]]$match$psib
       Psib[is.na(Psib)] <- ""
+      match_cnt <- nrow(y[[i]]$match$multilocus)
 
-      ## Focal row first
-      thisMatch <- cbind(
+      focal_df <- data.frame(
         uniqueGroup = i,
-        rowType = y[[i]]$focal$rowFlag,
-        uniqueIndex = y[[i]]$focal$index,
-        matchIndex = y[[i]]$focal$index,
-        nUniqueGroup = nrow(y[[i]]$match$multilocus),
-        alleleMismatch = as.character(x$alleleMismatch),
-        matchThreshold = as.character(x$matchThreshold),
-        cutHeight = as.character(x$cutHeight),
-        Psib = y[[i]]$match$psib[1],
-        score = ""
+        rowType = as.character(y[[i]]$focal$rowFlag),
+        uniqueIndex = as.character(y[[i]]$focal$index),
+        matchIndex = as.character(y[[i]]$focal$index),
+        nUniqueGroup = match_cnt,
+        alleleMismatch = mismatch_str,
+        matchThreshold = threshold_str,
+        cutHeight = cutheight_str,
+        Psib = as.character(y[[i]]$match$psib[1]),
+        score = "",
+        stringsAsFactors = FALSE
       )
+      if (has_metadata)
+        focal_df$metaData <- as.character(y[[i]]$focal$metaData)
+      out_list[[list_idx]] <- cbind(focal_df, y[[i]]$focal$multilocus)
+      list_idx <- list_idx + 1
 
-      if (!is.null(y[[1]]$match$metaData)) {
-        thisMatch <- cbind(thisMatch,
-                           metaData = y[[i]]$focal$metaData,
-                           y[[i]]$focal$multilocus)
-      } else {
-        thisMatch <- cbind(thisMatch,
-                           y[[i]]$focal$multilocus)
-      }
-      csvTable <- rbind(csvTable, thisMatch)
-
-
-      ## Match rows next..if there are any
-      ## If two or more matches then use cbind()
-      if (sum(y[[i]]$match$index != y[[i]]$focal$index) >= 2) {
-        thisMatch <- cbind(
-          uniqueGroup = i,
-          rowType = rowFlag[y[[i]]$match$index != y[[i]]$focal$index],
-          uniqueIndex = y[[i]]$focal$index,
-          matchIndex = y[[i]]$match$index[y[[i]]$match$index != y[[i]]$focal$index],
-          nUniqueGroup = nrow(y[[i]]$match$multilocus),
-          alleleMismatch = as.character(x$alleleMismatch),
-          matchThreshold = as.character(x$matchThreshold),
-          cutHeight = as.character(x$cutHeight),
-          Psib = Psib[y[[i]]$match$index != y[[i]]$focal$index],
-          score = y[[i]]$match$score[y[[i]]$match$index != y[[i]]$focal$index]
+      match_mask <- y[[i]]$match$index != y[[i]]$focal$index
+      sub_cnt <- sum(match_mask)
+      if (sub_cnt > 0) {
+        match_df <- data.frame(
+          uniqueGroup = rep(i, sub_cnt),
+          rowType = as.character(rowFlag[match_mask]),
+          uniqueIndex = rep(as.character(y[[i]]$focal$index), sub_cnt),
+          matchIndex = as.character(y[[i]]$match$index[match_mask]),
+          nUniqueGroup = rep(match_cnt, sub_cnt),
+          alleleMismatch = rep(mismatch_str, sub_cnt),
+          matchThreshold = rep(threshold_str, sub_cnt),
+          cutHeight = rep(cutheight_str, sub_cnt),
+          Psib = as.character(Psib[match_mask]),
+          score = as.character(y[[i]]$match$score[match_mask]),
+          stringsAsFactors = FALSE
         )
-        if (!is.null(y[[1]]$match$metaData)) {
-          thisMatch <- cbind(thisMatch,
-                             metaData = y[[i]]$match$metaData[y[[i]]$match$index != y[[i]]$focal$index],
-                             y[[i]]$match$multilocus[y[[i]]$match$index != y[[i]]$focal$index, ])
-        } else {
-          thisMatch <- cbind(thisMatch,
-                             y[[i]]$match$multilocus[y[[i]]$match$index != y[[i]]$focal$index, ])
-        }
-        csvTable <- rbind(csvTable, thisMatch)
-      ## If only one match use c()
-      } else if (sum(y[[i]]$match$index != y[[i]]$focal$index) == 1) {
-        thisMatch <- c(
-          uniqueGroup = i,
-          rowType = rowFlag[y[[i]]$match$index != y[[i]]$focal$index],
-          uniqueIndex = y[[i]]$focal$index,
-          matchIndex = y[[i]]$match$index[y[[i]]$match$index != y[[i]]$focal$index],
-          nUniqueGroup = nrow(y[[i]]$match$multilocus),
-          alleleMismatch = as.character(x$alleleMismatch),
-          matchThreshold = as.character(x$matchThreshold),
-          cutHeight = as.character(x$cutHeight),
-          Psib = Psib[y[[i]]$match$index != y[[i]]$focal$index],
-          score = y[[i]]$match$score[y[[i]]$match$index != y[[i]]$focal$index]
-        )
-        if (!is.null(y[[1]]$match$metaData)) {
-          thisMatch <- c(thisMatch,
-                         metaData = y[[i]]$match$metaData[y[[i]]$match$index != y[[i]]$focal$index],
-                         y[[i]]$match$multilocus[y[[i]]$match$index != y[[i]]$focal$index, ])
-        } else {
-          thisMatch <- c(thisMatch,
-                         y[[i]]$match$multilocus[y[[i]]$match$index != y[[i]]$focal$index, ])
-        }
-        csvTable <- rbind(csvTable, thisMatch)
+        if (has_metadata)
+          match_df$metaData <- as.character(y[[i]]$match$metaData[match_mask])
+        out_list[[list_idx]] <- cbind(match_df, y[[i]]$match$multilocus[match_mask, , drop = FALSE])
+        list_idx <- list_idx + 1
       }
-
     }
-    csvTable <- csvTable[2:nrow(csvTable), ]
 
+    out_list <- out_list[1:(list_idx - 1)]
+    csvTable <- do.call(rbind, out_list)
     utils::write.csv(csvTable, file = csvFile, row.names = FALSE)
   }
+}
+
+
+#### amPreCheck() ####
+amPreCheck <- function(amDatasetFocal) {
+  if (!inherits(amDatasetFocal, "amDataset")) {
+    stop(
+      "allelematch: amPreCheck: amDatasetFocal must be an object of class 'amDataset'; use amDataset() first.",
+      call. = FALSE
+    )
+  }
+
+  genotypes <- amDatasetFocal$multilocus
+  missing_code <- amDatasetFocal$missingCode
+
+  missing_per_ind <- rowSums(genotypes == missing_code) / ncol(genotypes)
+  max_ind_missing <- max(missing_per_ind) * 100
+  mean_ind_missing <- mean(missing_per_ind) * 100
+
+  missing_per_locus <- colSums(genotypes == missing_code) / nrow(genotypes)
+  max_locus_missing <- max(missing_per_locus) * 100
+
+  # 1. Identify pairs (assuming columns are strictly ordered a, b, a, b...)
+  n_cols <- ncol(genotypes)
+
+  # Determine pairs: integer division plus remainder for odd columns
+  # e.g., 21 columns -> 10 pairs + 1 single = 11 loci total
+  n_loci <- (n_cols %/% 2) + (n_cols %% 2)
+
+  # 2. Create a locus-level validity matrix (True if at least one allele is called)
+  # This collapses the 2-column diploid pair into 1 logical locus
+  locus_validity <- matrix(NA, nrow = nrow(genotypes), ncol = n_loci)
+
+  for (i in 1:(n_cols %/% 2)) {
+    col_a <- (genotypes[, 2 * i - 1] != missing_code)
+    col_b <- (genotypes[, 2 * i]     != missing_code)
+    locus_validity[, i] <- (col_a | col_b)
+  }
+
+  # If there is an odd dangling column, handle it as a standalone locus
+  if (n_cols %% 2 != 0) {
+    locus_validity[, n_loci] <- (genotypes[, n_cols] != missing_code)
+  }
+
+  # Calculate cross-product matrix based on the corrected locus count
+  shared_loci_matrix <- tcrossprod(locus_validity)
+  diag(shared_loci_matrix) <- NA
+  min_overlap <- min(shared_loci_matrix, na.rm = TRUE)
+
+  if (min_overlap == 0) {
+    verdict_str <- paste0(
+      "  [CRITICAL WARNING] At least two individuals exhibit ZERO overlapping loci.\n",
+      "  Running amUniqueProfile() or amCluster() may result in an atomic sorting failure or the creation of statistically unstable clusters.\n",
+      "  Action Required: Verify the clustering output carefully or pre-filter loci or individuals with high missing data rates before running allelematch.\n"
+    )
+  } else if (max_locus_missing > 50 || mean_ind_missing > 35) {
+    verdict_str <- paste0(
+      "  [CAUTION] Missing data load is heavy. High parameter settings may produce unstable clusters.\n",
+      "  Action Suggested: Consider conservative quality control screening.\n"
+    )
+  } else {
+    verdict_str <- "  [SAFE] Dataset looks complete enough for clustering.\n"
+  }
+
+  cat(
+    "\n========================================================\n",
+    "          allelematch Data Pre-Screening Quality Report   \n",
+    "========================================================\n",
+    "Locus:\n",
+    "  - Maximum missing data found in a single locus: ",
+    round(max_locus_missing, 1),
+    "%\n\n",
+    "Individual Sample:\n",
+    "  - Average missing data load across all individuals: ",
+    round(mean_ind_missing, 1),
+    "%\n",
+    "  - Worst individual missing data load profile:       ",
+    round(max_ind_missing, 1),
+    "%\n\n",
+    "Overlap Check:\n",
+    "  - Minimum shared loci between any pair of samples:  ",
+    min_overlap, " out of ", n_loci,
+    "\n\n",
+    "Verdict:\n",
+    verdict_str,
+    "========================================================\n\n",
+    sep = ""
+  )
+
+  invisible(
+    list(
+      maxLocusMissing = max_locus_missing,
+      meanIndMissing = mean_ind_missing,
+      minOverlap = min_overlap
+    )
+  )
 }
