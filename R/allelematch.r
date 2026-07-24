@@ -1,11 +1,11 @@
 ## allelematch R Package
-## v2.6.0
+## v3.0.0
 ## allelematch: Pairwise matching and identification of unique multilocus genotypes
 ##
 ## by Paul Galpern
 ## License: GPL-2
 ##
-## Last update: 28 June 2026
+## Last update: 23 July 2026
 ##
 ## N.B. Renamed from MicroSatMatch as of v1.1
 ##
@@ -23,7 +23,7 @@
 ## amUniqueProfile()       Utility to find optimal parameters for amUnique()
 ## summary.amUnique()      Summary method for amUnique objects
 ##
-## Requires:  dynamicTreeCut
+## Requires: dynamicTreeCut
 ##
 ## Please see R documentation for full description of function parameters
 
@@ -55,7 +55,7 @@ amDataset <-
 
     if (!is.null(indexColumn)) {
       if (length(indexColumn) > 1)
-        stop("allelematch: only one indexColumn permitted", call. = FALSE)
+        stop("allelematch: only one indexColumn permitted.", call. = FALSE)
       if (is.character(indexColumn)) {
         indexColumnWhich <- which(indexColumn == dimnames(multilocusDataset)[[2]])
         if (length(indexColumnWhich) == 0)
@@ -260,11 +260,11 @@ amPairwise <-
     if (sum(!(c(
       is.null(alleleMismatch), is.null(matchThreshold)
     ))) != 1)
-      stop("allelematch: please specify alleleMismatch OR matchThreshold.",
+      stop("allelematch: please specify alleleMismatch OR matchThreshold",
            call. = FALSE)
     if (length(c(alleleMismatch, matchThreshold)) > 1)
       stop(
-        "allelematch: please provide a single parameter value for alleleMismatch OR matchThreshold.",
+        "allelematch: please provide a single parameter value for alleleMismatch OR matchThreshold",
         call. = FALSE
       )
 
@@ -576,7 +576,7 @@ amCluster <-
         )$labels + 1,
         error = function(x)
           stop(
-            "allelematch: error in dynamic tree cutting; have you installed dynamicTreeCut?",
+            "allelematch: error in dynamic tree cutting; several causes for this error; have you installed dynamicTreeCut package?  install.packages(\"dynamicTreeCut\")",
             call. = FALSE
           )
       )
@@ -833,7 +833,10 @@ amCluster <-
     }
 
     if (is.null(clusterAnalysis$unique$multilocus))
-      stop("allelematch: amCluster: no clusters formed.", call. = FALSE)
+      stop(
+        "allelematch: amCluster: no clusters formed. Please set cutHeight lower and run again",
+        call. = FALSE
+      )
     if (is.null(dim(clusterAnalysis$unique$multilocus))) {
       tmpMultilocus <- matrix(
         clusterAnalysis$unique$multilocus,
@@ -1053,10 +1056,15 @@ amAlleleFreq <- function(amDatasetFocal, multilocusMap = NULL) {
     }
     multilocusMap <- rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
   } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus)) {
-    stop("allelematch: multilocusMap length mismatch.", call. = FALSE)
+    stop(
+      "allelematch: multilocusMap must be a vector of integers or strings giving the mappings onto loci for all genotype columns in amDatasetFocal;\n",
+      "             Example: sex followed by 4 diploid loci in paired columns could be coded: mutlilocusMap=c(1,2,2,3,3,4,4,5,5)\n",
+      "             or as: multilocusMap=c(\"SEX\",\"LOC1\",\"LOC1\",\"LOC2\",\"LOC2\",\"LOC3\",\"LOC3\",\"LOC4\",\"LOC4\")",
+      call. = FALSE
+    )
   } else if (sum(table(multilocusMap) > 2) > 0) {
     stop(
-      "allelematch: multilocusMap indicates a locus occurs in three or more columns; unhandled.",
+      "allelematch: multilocusMap indicates that a locus occurs in three or more columns;  this situation is not yet handled",
       call. = FALSE
     )
   }
@@ -1076,6 +1084,17 @@ amAlleleFreq <- function(amDatasetFocal, multilocusMap = NULL) {
       decreasing = TRUE)
     alleleFreq$loci[[locus]]$missingFreq <- sum(is.na(thisLocus)) / length(thisLocus)
     alleleFreq$loci[[locus]]$numAlleles <- length(thisLocusUnique)
+    # Fix: Calculate PIC only if there are at least 2 alleles
+    if (alleleFreq$loci[[locus]]$numAlleles >= 2) {
+      alleleFreq$loci[[locus]]$PIC <- 1 - sum(alleleFreq$loci[[locus]]$alleleFreq^2) -
+        sum(apply(t(combn(
+          1:length(alleleFreq$loci[[locus]]$alleleFreq), 2
+        )), 1, function(x)
+          prod(alleleFreq$loci[[locus]]$alleleFreq[x]^2)))
+    } else {
+      # For monomorphic loci, PIC is defined as 0
+      alleleFreq$loci[[locus]]$PIC <- 0
+    }
   }
   class(alleleFreq) <- "amAlleleFreq"
   return(alleleFreq)
@@ -1134,10 +1153,15 @@ amUnique <-
       }
       multilocusMap <- rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
     } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus)) {
-      stop("allelematch: multilocusMap length mismatch.", call. = FALSE)
+      stop(
+        "allelematch: multilocusMap must be a vector of integers or strings giving the mappings onto loci for all genotype columns in amDatasetFocal;
+             Example: sex followed by 4 diploid loci in paired columns could be coded: mutlilocusMap=c(1,2,2,3,3,4,4,5,5)
+             or as: multilocusMap=c(\"GENDER\",\"LOC1\",\"LOC1\",\"LOC2\",\"LOC2\",\"LOC3\",\"LOC3\",\"LOC4\",\"LOC4\")",
+        call. = FALSE
+      )
     } else if (sum(table(multilocusMap) > 2) > 0) {
       stop(
-        "allelematch: multilocusMap indicates that a locus occurs in three or more columns.",
+        "allelematch: multilocusMap indicates that a locus occurs in three or more columns; this situation is not yet handled",
         call. = FALSE
       )
     }
@@ -1148,11 +1172,11 @@ amUnique <-
       is.null(matchThreshold),
       is.null(cutHeight)
     ))) != 1)
-      stop("allelematch: please specify alleleMismatch OR matchThreshold OR cutHeight.",
+      stop("allelematch: please specify alleleMismatch OR matchThreshold OR cutHeight",
            call. = FALSE)
     if (length(c(alleleMismatch, matchThreshold, cutHeight)) > 1)
       stop(
-        "allelematch: please provide a single parameter value for alleleMismatch OR matchThreshold OR cutHeight.",
+        "allelematch: please provide a single parameter value for alleleMismatch OR matchThreshold OR cutHeight. Use amUniqueProfile() to examine a range of values",
         call. = FALSE
       )
 
@@ -1177,7 +1201,7 @@ amUnique <-
     if (matchThreshold == 1 && cutHeight == 0) {
       if (verbose)
         cat(
-          "allelematch: cutHeight cannot be zero. Setting cutHeight=0.00001. This will return perfect matches.\n"
+          "allelematch: cutHeight cannot be zero. Setting cutHeight=0.00001. This will return perfect matches\n"
         )
       cutHeight <- 0.00001
     }
@@ -1353,10 +1377,10 @@ amUniqueProfile <-
       }
       multilocusMap <- rep(1:(ncol(amDatasetFocal$multilocus) / 2), each = 2)
     } else if (length(multilocusMap) != ncol(amDatasetFocal$multilocus)) {
-      stop("allelematch: multilocusMap length mismatch.", call. = FALSE)
+      stop("allelematch: multilocusMap is the wrong length", call. = FALSE)
     } else if (sum(table(multilocusMap) > 2) > 0) {
       stop(
-        "allelematch: multilocusMap indicates that a locus occurs in three or more columns.",
+        "allelematch: multilocusMap indicates that a locus occurs in three or more columns",
         call. = FALSE
       )
     }
@@ -1368,7 +1392,7 @@ amUniqueProfile <-
       is.null(cutHeight)
     ))) > 1) {
       stop(
-        "allelematch: please specify alleleMismatch OR matchThreshold OR cutHeight.",
+        "allelematch: please specify alleleMismatch OR matchThreshold OR cutHeight",
         call. = FALSE
       )
     }
@@ -1384,13 +1408,17 @@ amUniqueProfile <-
       profileType <- "alleleMismatch"
     } else {
       if (length(c(alleleMismatch, matchThreshold, cutHeight)) < 2)
-        stop("allelematch: please provide a range of parameter values.",
-             call. = FALSE)
+        stop(
+          "allelematch: please provide a range of parameter values for alleleMismatch OR matchThreshold OR cutHeight. e.g. alleleMismatch = c(0,1,2,3,4,5,6,7,8)",
+          call. = FALSE
+        )
 
       if (!is.null(alleleMismatch)) {
         if (length(alleleMismatch) <= 2)
-          stop("allelematch: alleleMismatch must contain three or more values",
-               call. = FALSE)
+          stop(
+            "allelematch: alleleMismatch must be a vector containing a sequence of three or more values",
+            call. = FALSE
+          )
         matchThreshold <- 1 - (alleleMismatch / length(multilocusMap))
         cutHeight <- 1 - matchThreshold
         profileType <- "alleleMismatch"
@@ -1534,7 +1562,7 @@ amUniqueProfile <-
 
       if (verbose) {
         caution_text <- if (profileMorphology %in% c("NonZeroSecondMinimum", "NoSecondMinimum"))
-          "allelematch: Use extra caution. Detection of optimal parameter is more error prone with this morphology.\n"
+          "allelematch: Use extra caution. Detection of optimal parameter is more error prone with this morphology\n"
         else
           ""
         cat(
@@ -1725,7 +1753,7 @@ summary.amUnique <- function(object,
 
   if (is.null(html) && is.null(csv)) {
     cat(
-      "allelematch: Console summary is not available for \"amUnique\" objects. Please use summary.amUnique(x, html=TRUE) or summary.amUnique(x, csv=\"file.csv\") options.\n"
+      "allelematch: Console summary is not available for \"amUnique\" objects. Please use summary.amUnique(x, html=TRUE) or summary.amUnique(x, csv=\"file.csv\") options\n"
     )
   }
 }
@@ -1952,11 +1980,14 @@ amHTML.amPairwise <-
     close(fileID)
 
     if (usingTmpFile) {
-      cat("Opening HTML file (",
-          htmlFile,
-          ") in default browser...\n",
-          sep = "")
-      utils::browseURL(htmlFile)
+      cat("Opening HTML file (", htmlFile, ") in default browser...\n", sep = "")
+
+      # Only open the HTML if the session is interactive AND the amregtest suite
+      # (or the user) hasn't explicitly disabled it via this environment variable.
+      if (interactive() && Sys.getenv("ALLELEMATCH_SKIP_HTML") == "") {
+        utils::browseURL(htmlFile)
+      }
+
       oldTmpFiles <- Sys.glob(file.path(htmlFilePath, "am*.htm*"))
       if (length(oldTmpFiles) > 0)
         suppressWarnings(file.remove(oldTmpFiles))
@@ -2240,11 +2271,14 @@ amHTML.amCluster <-
     close(fileID)
 
     if (usingTmpFile) {
-      cat("Opening HTML file (",
-          htmlFile,
-          ") in default browser...\n",
-          sep = "")
-      utils::browseURL(htmlFile)
+      cat("Opening HTML file (", htmlFile, ") in default browser...\n", sep = "")
+
+      # Only open the HTML if the session is interactive AND the amregtest suite
+      # (or the user) hasn't explicitly disabled it via this environment variable.
+      if (interactive() && Sys.getenv("ALLELEMATCH_SKIP_HTML") == "") {
+        utils::browseURL(htmlFile)
+      }
+
       oldTmpFiles <- Sys.glob(file.path(htmlFilePath, "am*.htm*"))
       if (length(oldTmpFiles) > 0)
         suppressWarnings(file.remove(oldTmpFiles))
@@ -2655,11 +2689,14 @@ amHTML.amUnique <-
     close(fileID)
 
     if (usingTmpFile) {
-      cat("Opening HTML file (",
-          htmlFile,
-          ") in default browser...\n",
-          sep = "")
-      utils::browseURL(htmlFile)
+      cat("Opening HTML file (", htmlFile, ") in default browser...\n", sep = "")
+
+      # Only open the HTML if the session is interactive AND the amregtest suite
+      # (or the user) hasn't explicitly disabled it via this environment variable.
+      if (interactive() && Sys.getenv("ALLELEMATCH_SKIP_HTML") == "") {
+        utils::browseURL(htmlFile)
+      }
+
       oldTmpFiles <- Sys.glob(file.path(htmlFilePath, "am*.htm*"))
       if (length(oldTmpFiles) > 0)
         suppressWarnings(file.remove(oldTmpFiles))
@@ -2838,7 +2875,7 @@ amCSV.amUnique <- function(x, csvFile, uniqueOnly = FALSE) {
 amPreCheck <- function(amDatasetFocal) {
   if (!inherits(amDatasetFocal, "amDataset")) {
     stop(
-      "allelematch: amPreCheck: amDatasetFocal must be an object of class 'amDataset'; use amDataset() first.",
+      "allelematch: amPreCheck: amDatasetFocal must be an object of class 'amDataset'; use amDataset() first",
       call. = FALSE
     )
   }
@@ -2912,7 +2949,9 @@ amPreCheck <- function(amDatasetFocal) {
     "%\n\n",
     "Overlap Check:\n",
     "  - Minimum shared loci between any pair of samples:  ",
-    min_overlap, " out of ", n_loci,
+    min_overlap,
+    " out of ",
+    n_loci,
     "\n\n",
     "Verdict:\n",
     verdict_str,

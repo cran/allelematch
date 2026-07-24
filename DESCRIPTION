@@ -2,8 +2,8 @@ Package: allelematch
 Type: Package
 Title: Identifying Unique Multilocus Genotypes where Genotyping Error
         and Missing Data may be Present
-Version: 2.6.0
-Date: 2026-06-28
+Version: 3.0.0
+Date: 2026-07-21
 Author: Paul Galpern [aut],
   Micheline Manseau [aut],
   Pete Hettinga [aut],
@@ -57,6 +57,6 @@ LazyLoad: yes
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2026-06-29 02:52:22 UTC; toddbcross
+Packaged: 2026-07-23 22:23:33 UTC; toddbcross
 Repository: CRAN
-Date/Publication: 2026-07-05 08:10:02 UTC
+Date/Publication: 2026-07-24 04:30:02 UTC

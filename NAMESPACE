@@ -5,7 +5,7 @@ exportPattern(".")
 importFrom("dynamicTreeCut", "cutreeHybrid")
 importFrom("graphics", "arrows", "layout", "legend", "lines", "par", "plot.default", "points", "text")
 importFrom("stats", "as.dist", "hclust")
-importFrom("utils", "browseURL", "write.csv")
+importFrom("utils", "browseURL", "combn", "write.csv")
 
 # Register S3 methods
 S3method(print, amDataset)

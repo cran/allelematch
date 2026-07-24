@@ -20,8 +20,8 @@
 	\tabular{ll}{
 		Package: \tab allelematch\cr
 		Type: \tab Package\cr
-		Version: \tab 2.6.0\cr
-		Date: \tab 2026-06-23\cr
+		Version: \tab 3.0.0\cr
+		Date: \tab 2026-07-23\cr
 		License: \tab GPL (>= 2)\cr
 		Requires: \tab dynamicTreeCut\cr
 		LazyLoad: \tab yes\cr
